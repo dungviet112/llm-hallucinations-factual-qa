@@ -3,15 +3,22 @@
 ## Setup
 
 Set up the conda env by running `setup.sh`
-It brings in basic plotting packages as well as captum, which is needed for collecting the token attributions.
+```sh
+bash setup.sh
+```
 
 ## Data sources
 
-An overview of the datasets/models used can be found in the paper under the section 4 **Experimental setup** section of the paper.
-In particular, while our **result_collector.py** uses **TriviaQA** directly, for TREX we do/save a sampling in the form of founders/capitals/place_of_birth.csv.
-Run `trex_parser.py` to create these data files.
+There are 2 datasets: **TriviaQA** and **TREX**.
 
-## Artifact data collection
+In particular, while **result_collector.py** uses **TriviaQA** directly, for TREX we do/save a sampling in the form of founders/capitals/place_of_birth.csv.
+In the case of doing experiment on TREX, run `trex_parser.py` to create these data files first.
+```sh
+# trex
+python trex_parser.py
+```
+
+## Artifact data collection with original hook function
 
 Classifiers and plots will be created on model/derived artifacts like activations, attention, softmax output, attributions.
 Artifact data collection is done in **result_collector.py**, is **VERY** time consuming and best done on a powerful machine.
@@ -20,6 +27,28 @@ Once acquired however, the same data can be used for a broader analysis if so de
 
 We use models/tokenizers from Huggingface. Softmax/logits are collected directly from the model, attributions are collected using the 
 integrated gradients (IG) method available in Captum and activations and attentions (model internal states) are collected using the **register_forward_hook** functionality.
+```sh
+python result_collector.py
+```
+
+## Artifact data collection with pyvene
+
+Artifacts includes activations, attention, softmax output, attributions.
+Artifact data collection is done in **result_collector_pyvene.py** then is written in picke files.
+
+Models/tokenizers are called from Huggingface. Softmax/logits are collected directly from the model, attributions are collected using the 
+integrated gradients (IG) method available in Captum and activations and attentions are collected using the **pyvene** package which helps reduce the complexity of the code when collecting model internal states.
+```sh
+python result_collector_pyvene.py
+```
+
+The experiment in **test_pyvene.ipynb** is about collecting artifacts from a sample QA after integrating with pyvene (the target is to check the type, shape of output)
+
+## Classifiers
+
+Training classifiers on IG, softmax, attention scores, FCC activations across the models/datasets. **classifier_model.ipynb** creates a RNN model for IG and single MLP models for the rest artifacts then trains them on the data collected by **result_collector.py** or **result_collector_pyvene**. The results are in tables 2 and 3 in the **Results** section of the paper.
+
+**Note**: The best performances are belonging to activations and attentions at last layer.
 
 ## Plots
 
@@ -29,10 +58,6 @@ Once data is collected, we are iterested in comparative plots of softmax/IG attr
 This is the reason why we collect the large dicts at the beginning of both notebooks. This is also a time consuming process, but note
 that the notebook(s) can also be used on one model/dataset for fast experimentation.
 Example: the data source directoiry (in our case **results**) would contain only capitals/falcon-40b_capitals_7_18.pickle while **founders**, **trivia**, **place_of_birth** stay empty.
-
-## Classifiers
-
-We train classifiers on IG, softmax, attention scores, FCC activativations across the models/datasets. The results are in tables 2 and 3 in the **Results** section of the paper. **classifier_model.ipynb** creates basic models and trains them on the data collected by **result_collector.py**.
 
 ## SelfCheckGPT
 
