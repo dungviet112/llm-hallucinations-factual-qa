@@ -17,7 +17,7 @@ import pyvene as pv
 
 # Data related params
 iteration = 0
-interval = 400 # We run the inference on these many examples at a time to achieve parallelization
+interval = 800 # We run the inference on these many examples at a time to achieve parallelization
 start = iteration * interval
 end = start + interval
 dataset_name =  "trivia_qa" #"place_of_birth" #"capitals" #"founders"
@@ -88,11 +88,11 @@ def generate_response(x, model, *, max_length=100, pbar=False):
     for step in bar:
         logits = get_next_token(x, model)
         next_token = logits.squeeze()[-1].argmax()
-        current_ids = torch.concat([x, next_token.view(1, -1)], dim=1)
+        x = torch.concat([x, next_token.view(1, -1)], dim=1)
         response.append(next_token)
         if next_token == get_stop_token() and step > 5:
             break
-    return torch.stack(response).cpu().numpy(), logits.squeeze(), current_ids
+    return torch.stack(response).cpu().numpy(), logits.squeeze(), x
 
 
 def answer_question(question, model, tokenizer, *, max_length=100, pbar=False):
@@ -154,7 +154,7 @@ def collect_fully_connected(model, current_ids, token_pos, layer_start, layer_en
         )[0]
 
     # Stack activations from all layers
-    first_activation = np.stack([act[0] for act in collected_activations])
+    first_activation = np.stack([act[0].float().cpu().numpy()  for act in collected_activations])
     return first_activation
 
 
@@ -175,7 +175,7 @@ def collect_attention(model, current_ids, token_pos, layer_start, layer_end):
             unit_locations=unit_locations,
             output_original_output=True,
         )[0]
-    first_activation = np.stack([act[0] for act in collected_activations])
+    first_activation = np.stack([act[0].float().cpu().numpy()  for act in collected_activations])
     return first_activation
 
 
@@ -225,7 +225,7 @@ def get_ig(prompt, forward_func, tokenizer, embedder, model):
 
 
 def compute_and_save_results():
-    batch_size = 80
+    batch_size = 100
     # Dataset
     dataset = load_data(dataset_name)
     if dataset_name in trex_data_to_question_template.keys():
