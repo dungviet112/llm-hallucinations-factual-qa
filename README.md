@@ -1,5 +1,9 @@
 # Identifying Hallucinations in LLMs
 
+## AUROC result on GPT-2
+
+Up-to-date results at [here](https://docs.google.com/spreadsheets/d/13OxSkdCUJkjC2ns8Yjr0LK3VmrzOxTWAftfgcCyvR1k/edit?usp=sharing).
+
 ## Setup
 
 Set up the conda env by running `setup.sh`
