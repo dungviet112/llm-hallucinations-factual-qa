@@ -2,7 +2,7 @@ conda create -y -n hallucination python=3.10 numpy scipy ipykernel pandas scikit
 source activate hallucination
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install git+https://github.com/huggingface/transformers.git
-pip install matplotlib seaborn sentencepiece evaluate einops rouge-score gputil captum
+pip install matplotlib seaborn sentencepiece evaluate einops rouge-score gputil captum dotenv
 pip install accelerate==0.30.0 pyvene==0.1.2
 
 pip install selfcheckgpt spacy
