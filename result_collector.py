@@ -18,7 +18,7 @@ from string import Template
 
 # Data related params
 iteration = 0
-interval = 160 # We run the inference on these many examples at a time to achieve parallelization
+interval = 1000 # We run the inference on these many examples at a time to achieve parallelization
 start = iteration * interval
 end = start + interval
 dataset_name =  "trivia_qa" #"place_of_birth" #"capitals" #"founders"
@@ -34,7 +34,7 @@ model_dir = Path("./.cache/models/") # Cache for huggingface models
 results_dir = Path("./results/") # Directory for storing results
 
 # Hardware
-gpu = "0"
+gpu = "1"
 device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
 
 # Integrated Grads
@@ -42,7 +42,7 @@ ig_steps = 64
 internal_batch_size = 4
 
 # Model
-model_name = "gpt2" #"llama-2-7b-hf" #"falcon-7b" #"opt-30b"
+model_name = "open_llama_7b" #"gpt2" #"llama-2-7b-hf" #"falcon-7b" #"opt-30b"
 layer_number = -1
 # hardcode below,for now. Could dig into all models but they take a while to load
 model_num_layers = {
@@ -295,17 +295,17 @@ def compute_and_save_results():
         results['start_pos'].append(start_pos)
         results['correct'].append(correct)
         results['first_fully_connected'].append(first_fully_connected)
-        results['final_fully_connected'].append(final_fully_connected)
+        # results['final_fully_connected'].append(final_fully_connected)
         results['first_attention'].append(first_attention)
-        results['final_attention'].append(final_attention)
+        # results['final_attention'].append(final_attention)
         results['attributes_first'].append(attributes_first)
-        if (idx + 1) % batch_size == 0 or idx == len(dataset)-1:
-            with open(results_dir/f"{model_name}_{dataset_name}_batch_{idx//batch_size}.pickle", "wb") as f:
-                f.write(pickle.dumps(results))
-            results.clear()
+        # if (idx + 1) % batch_size == 0 or idx == len(dataset)-1:
+        #     with open(results_dir/f"{model_name}_{dataset_name}_batch_{idx//batch_size}.pickle", "wb") as f:
+        #         f.write(pickle.dumps(results))
+        #     results.clear()
               
-    # with open(results_dir/f"{model_name}_{dataset_name}_start-{start}_end-{end}_{datetime.now().month}_{datetime.now().day}.pickle", "wb") as outfile:
-    #     outfile.write(pickle.dumps(results))
+    with open(results_dir/f"{model_name}_{dataset_name}_start-{start}_end-{end}_{datetime.now().month}_{datetime.now().day}.pickle", "wb") as outfile:
+        outfile.write(pickle.dumps(results))
 
 
 if __name__ == '__main__':
