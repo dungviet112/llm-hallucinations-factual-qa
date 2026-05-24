@@ -117,44 +117,54 @@ def load_data(dataset_name):
 
 def get_next_token(x, model):
     with torch.no_grad():
-        return model(x).logits
+        outputs = model(x, output_hidden_states=True)
+        # return model(x).logits
+        return outputs.logits, outputs.hidden_states
 
 
 def generate_response(x, model, *, max_length=100, pbar=False):
     response = []
+    generated_embeddings = []
+    # final_attention_map = None
     bar = tqdm(range(max_length)) if pbar else range(max_length)
     for step in bar:
-        logits = get_next_token(x, model)
+        logits, hidden_states = get_next_token(x, model)
+
+        last_token_emb = hidden_states[-1][:, -1, :].squeeze(0).detach().to(torch.float32).cpu().numpy()
+        generated_embeddings.append(last_token_emb)
+
+        # final_attention_map = [layer_attn.squeeze(0).detach().to(torch.float32).cpu().numpy() for layer_attn in attentions]
+
         next_token = logits.squeeze()[-1].argmax()
         x = torch.concat([x, next_token.view(1, -1)], dim=1)
         response.append(next_token)
         if next_token == get_stop_token() and step>5:
             break
-    return torch.stack(response).cpu().numpy(), logits.squeeze()
+    return torch.stack(response).cpu().numpy(), logits.squeeze(), generated_embeddings
 
 
 def answer_question(question, model, tokenizer, *, max_length=100, pbar=False):
     input_ids = tokenizer(question, return_tensors='pt').input_ids.to(model.device)
-    response, logits = generate_response(input_ids, model, max_length=max_length, pbar=pbar)
-    return response, logits, input_ids.shape[-1]
+    response, logits, generated_embeddings = generate_response(input_ids, model, max_length=max_length, pbar=pbar)
+    return response, logits, input_ids.shape[-1], generated_embeddings
 
 
 def answer_trivia(question, targets, model, tokenizer):
-    response, logits, start_pos = answer_question(question, model, tokenizer)
+    response, logits, start_pos, generated_embeddings = answer_question(question, model, tokenizer)
     str_response = tokenizer.decode(response, skip_special_tokens=True)
     correct = False
     for alias in targets:
         if alias.lower() in str_response.lower():
             correct = True
             break
-    return response, str_response, logits, start_pos, correct
+    return response, str_response, logits, start_pos, correct, generated_embeddings
 
 
 def answer_trex(source, targets, model, tokenizer, question_template):
-    response, logits, start_pos = answer_question(question_template.substitute(source=source), model, tokenizer)
+    response, logits, start_pos, generated_embeddings = answer_question(question_template.substitute(source=source), model, tokenizer)
     str_response = tokenizer.decode(response, skip_special_tokens=True)
     correct = any([target.lower() in str_response.lower() for target in targets])
-    return response, str_response, logits, start_pos, correct
+    return response, str_response, logits, start_pos, correct, generated_embeddings
 
 
 def get_start_end_layer(model):
@@ -220,7 +230,7 @@ def get_embedder(model):
 
 def get_ig(prompt, forward_func, tokenizer, embedder, model):
     input_ids = tokenizer(prompt, return_tensors='pt').input_ids.to(model.device)
-    prediction_id = get_next_token(input_ids, model).squeeze()[-1].argmax()
+    prediction_id, _, _ = get_next_token(input_ids, model).squeeze()[-1].argmax()
     encoder_input_embeds = embedder(input_ids).detach() # fix this for each model
     ig = IntegratedGradients(forward_func=forward_func)
     attributes = normalize_attributes(
@@ -281,11 +291,14 @@ def compute_and_save_results():
         attention_hidden_layers.clear()
 
         question, answers = dataset[idx]
-        response, str_response, logits, start_pos, correct = question_asker(question, answers, model, tokenizer)
+        response, str_response, logits, start_pos, correct, generated_embeddings = question_asker(question, answers, model, tokenizer)
         layer_start, layer_end = get_start_end_layer(model)
         first_fully_connected, final_fully_connected = collect_fully_connected(start_pos, layer_start, layer_end)
         first_attention, final_attention = collect_attention(start_pos, layer_start, layer_end)
-        attributes_first = get_ig(question, forward_func, tokenizer, embedder, model)
+        # attributes_first = get_ig(question, forward_func, tokenizer, embedder, model)
+
+        # final_attention_map = np.stack(final_attention_map[layer_start:layer_end])
+        generated_embeddings = np.stack(generated_embeddings)
 
         results['question'].append(question)
         results['answers'].append(answers)
@@ -298,7 +311,10 @@ def compute_and_save_results():
         # results['final_fully_connected'].append(final_fully_connected)
         results['first_attention'].append(first_attention)
         # results['final_attention'].append(final_attention)
-        results['attributes_first'].append(attributes_first)
+        # results['attributes_first'].append(attributes_first)
+        # results['final_attention_map'].append(final_attention_map)
+        results['generated_embeddings'].append(generated_embeddings)
+
         # if (idx + 1) % batch_size == 0 or idx == len(dataset)-1:
         #     with open(results_dir/f"{model_name}_{dataset_name}_batch_{idx//batch_size}.pickle", "wb") as f:
         #         f.write(pickle.dumps(results))
