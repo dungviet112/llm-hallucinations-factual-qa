@@ -1,0 +1,7 @@
+2026-06-04 08:50:32,056 - WARNING - Total samples processed: 1000
+2026-06-04 08:50:32,057 - WARNING - Total samples skipped: 0
+2026-06-04 08:50:32,189 - WARNING - AUROC for self check overall: 0.5216910645171255
+2026-06-04 08:50:32,192 - WARNING - AUROC for self check average: 0.5758039816232772
+2026-06-04 08:50:32,196 - WARNING - AUROC for self check ngram: 0.5434064018429682
+2026-06-04 08:50:32,315 - WARNING - Results saved to ./logs/selfcheck/selfcheck_open_llama_7b_trivia_qa_1.pickle
+2026-06-04 08:50:32,316 - WARNING - Log file saved to ./logs/selfcheck_log_20260603_113317.log

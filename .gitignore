@@ -3,8 +3,11 @@
 
 # Data folders
 trex_uncompressed/
+mandarjoshi___trivia_qa/
 trivia_qa/
 results/
+*.pickle
+selfcheck_results/
 
 # Model files
 models/

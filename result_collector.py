@@ -100,7 +100,7 @@ def load_data(dataset_name):
         pd_frame = pd.read_csv(data_dir / f'{dataset_name}.csv')
         dataset = [(pd_frame.iloc[i]['subject'], pd_frame.iloc[i]['object'].split("<OR>")) for i in range(start, min(end, len(pd_frame)))]
     elif dataset_name=="trivia_qa":
-        trivia_qa = load_dataset('trivia_qa', data_dir='rc.nocontext', cache_dir=str(data_dir))
+        trivia_qa = load_dataset('mandarjoshi/trivia_qa', 'rc.nocontext', cache_dir=str(data_dir))
         full_dataset = []
         for obs in tqdm(trivia_qa['train']):
             aliases = []
