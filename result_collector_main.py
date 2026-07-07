@@ -34,7 +34,7 @@ model_dir = Path("./.cache/models/") # Cache for huggingface models
 results_dir = Path("./results/") # Directory for storing results
 
 # Hardware
-gpu = "0"
+gpu = "1"
 device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
 
 # Integrated Grads
@@ -42,7 +42,7 @@ ig_steps = 64
 internal_batch_size = 4
 
 # Model
-model_name = "Llama-3.1-8B-Instruct" #"open_llama_7b" #"gpt2" #"llama-2-7b-hf" #"falcon-7b" #"opt-30b"
+model_name = "Qwen2.5-7B-Instruct" #"gpt2" #"llama-2-7b-hf" #"falcon-7b" #"opt-30b"
 layer_number = -1
 # hardcode below,for now. Could dig into all models but they take a while to load
 model_num_layers = {
@@ -137,7 +137,6 @@ def generate_response(x, model, *, max_length=100, pbar=False):
         logits, hidden_states = get_next_token(x, model)
 
         last_token_emb = hidden_states[-1][:, -1, :].squeeze(0).detach().to(torch.float32).cpu().numpy()
-        # last_token_emb = hidden_states[-1][0].squeeze(0).detach().to(torch.float32).cpu().numpy()
         generated_embeddings.append(last_token_emb)
 
         # final_attention_map = [layer_attn.squeeze(0).detach().to(torch.float32).cpu().numpy() for layer_attn in attentions]
@@ -159,11 +158,6 @@ def answer_question(question, model, tokenizer, *, max_length=100, pbar=False):
 def answer_trivia(question, targets, model, tokenizer):
     response, logits, start_pos, generated_embeddings = answer_question(question, model, tokenizer)
     str_response = tokenizer.decode(response, skip_special_tokens=True)
-    # full_text = (question + " " + str_response).strip()
-    # final_inputs = tokenizer(full_text, return_tensors="pt").input_ids.to(model.device)
-    # with torch.no_grad():
-    #     final_outputs = model(final_inputs, output_hidden_states=True)
-    # final_embeddings = final_outputs.hidden_states[-1][0, :, :].to(torch.float32).detach().cpu().numpy()
     correct = False
     for alias in targets:
         if alias.lower() in str_response.lower():
@@ -197,18 +191,18 @@ def collect_fully_connected(token_pos, layer_start, layer_end):
     layer_name = model_repos[model_name][1][2:].split(coll_str)
     first_activation = np.stack([fully_connected_hidden_layers[f'{layer_name[0]}{i}{layer_name[1]}'][-1][token_pos] \
                                 for i in range(layer_start, layer_end)])
-    # final_activation = np.stack([fully_connected_hidden_layers[f'{layer_name[0]}{i}{layer_name[1]}'][-1][-1] \
-    #                             for i in range(layer_start, layer_end)])
-    return first_activation
+    final_activation = np.stack([fully_connected_hidden_layers[f'{layer_name[0]}{i}{layer_name[1]}'][-1][-1] \
+                                for i in range(layer_start, layer_end)])
+    return first_activation, final_activation
 
 
 def collect_attention(token_pos, layer_start, layer_end):
     layer_name = model_repos[model_name][2][2:].split(coll_str)
     first_activation = np.stack([attention_hidden_layers[f'{layer_name[0]}{i}{layer_name[1]}'][-1][token_pos] \
                                 for i in range(layer_start, layer_end)])
-    # final_activation = np.stack([attention_hidden_layers[f'{layer_name[0]}{i}{layer_name[1]}'][-1][-1] \
-    #                             for i in range(layer_start, layer_end)])
-    return first_activation
+    final_activation = np.stack([attention_hidden_layers[f'{layer_name[0]}{i}{layer_name[1]}'][-1][-1] \
+                                for i in range(layer_start, layer_end)])
+    return first_activation, final_activation
 
 
 def normalize_attributes(attributes: torch.Tensor) -> torch.Tensor:
@@ -258,7 +252,7 @@ def get_ig(prompt, forward_func, tokenizer, embedder, model):
 
 
 def compute_and_save_results():
-    # batch_size = 5000
+    batch_size = 2500
     # Dataset
     dataset = load_data(dataset_name)
     if dataset_name in trex_data_to_question_template.keys():
@@ -300,8 +294,8 @@ def compute_and_save_results():
         question, answers = dataset[idx]
         response, str_response, logits, start_pos, correct, generated_embeddings = question_asker(question, answers, model, tokenizer)
         layer_start, layer_end = get_start_end_layer(model)
-        first_fully_connected = collect_fully_connected(start_pos, layer_start, layer_end)
-        first_attention = collect_attention(start_pos, layer_start, layer_end)
+        first_fully_connected, final_fully_connected = collect_fully_connected(start_pos, layer_start, layer_end)
+        first_attention, final_attention = collect_attention(start_pos, layer_start, layer_end)
         attributes_first = get_ig(question, forward_func, tokenizer, embedder, model)
         generated_embeddings = np.stack(generated_embeddings)
 
@@ -319,13 +313,14 @@ def compute_and_save_results():
         results['attributes_first'].append(attributes_first)
         results['generated_embeddings'].append(generated_embeddings)
 
-        # if (idx + 1) % batch_size == 0 or idx == len(dataset)-1:
-        #     with open(results_dir/f"{model_name}_{dataset_name}_batch_{idx//batch_size}.pickle", "wb") as f:
-        #         f.write(pickle.dumps(results))
-        #     results.clear()
+        if (idx + 1) % batch_size == 0 or idx == len(dataset)-1:
+            with open(results_dir/f"{model_name}_{dataset_name}_batch_{idx//batch_size}.pickle", "wb") as f:
+                f.write(pickle.dumps(results))
+            results.clear()
+            f.close()
               
-    with open(results_dir/f"{model_name}_{dataset_name}_start-{start}_end-{end}_{datetime.now().month}_{datetime.now().day}.pickle", "wb") as outfile:
-        outfile.write(pickle.dumps(results))
+    # with open(results_dir/f"{model_name}_{dataset_name}_start-{start}_end-{end}_{datetime.now().month}_{datetime.now().day}.pickle", "wb") as outfile:
+    #     outfile.write(pickle.dumps(results))
 
 
 if __name__ == '__main__':

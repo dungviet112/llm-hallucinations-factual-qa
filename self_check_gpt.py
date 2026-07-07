@@ -185,7 +185,7 @@ logger.warning(f"AUROC for self check average: {roc_score}")
 roc_score = roc_auc_score(correct_arr, selfcheck_ngram_average)
 logger.warning(f"AUROC for self check ngram: {roc_score}")
 
-output_file = f"./logs/selfcheck/selfcheck_{model_name}_{dataset_name}_{gpu}.pickle"
+output_file = f"./logs/selfcheck_results/selfcheck_{model_name}_{dataset_name}_{len(dataset)}samples.pickle"
 with open(output_file, "wb") as outfile:
     outfile.write(pickle.dumps(selfcheck_dict))
 logger.warning(f"Results saved to {output_file}")
