@@ -1,8 +1,8 @@
 # Identifying Hallucinations in LLMs
 
-## AUROC result on GPT-2
+## AUROC result on LLMs
 
-Up-to-date results at [here](https://docs.google.com/spreadsheets/d/13OxSkdCUJkjC2ns8Yjr0LK3VmrzOxTWAftfgcCyvR1k/edit?usp=sharing).
+Up-to-date results at [Google Sheet](https://docs.google.com/spreadsheets/d/13OxSkdCUJkjC2ns8Yjr0LK3VmrzOxTWAftfgcCyvR1k/edit?usp=sharing).
 
 ## Setup
 
@@ -24,7 +24,7 @@ python trex_parser.py
 
 ## Artifact data collection with original hook function
 
-Classifiers and plots will be created on model/derived artifacts like activations, attention, softmax output, attributions.
+Classifiers and plots will be created on model/derived artifacts like activations, attention, softmax output, attributions, contextual embeddings.
 Artifact data collection is done in **result_collector.py**, is **VERY** time consuming and best done on a powerful machine.
 It will write picke files and it gathers more data than used in the paper (in the paper we look at last layer activations, etc).
 Once acquired however, the same data can be used for a broader analysis if so desired.
@@ -50,18 +50,21 @@ The experiment in **test_pyvene.ipynb** is about collecting artifacts from a sam
 
 ## Classifiers
 
-Training classifiers on IG, softmax, attention scores, FCC activations across the models/datasets. **classifier_model.ipynb** creates a RNN model for IG and single MLP models for the rest artifacts then trains them on the data collected by **result_collector.py** or **result_collector_pyvene**. The results are in tables 2 and 3 in the **Results** section of the paper.
+Training classifiers on IG, softmax, attention scores, FCC activations, contextual embeddings across the models/datasets. **model.py** consists of several different classifier architectures for the artifacts, then train and test them to get AUROC score with **eval_classifier.py** on the data collected by **result_collector.py**. The results are in the **Google Sheet** link above.
+```sh
+python eval_classifier.py
+```
 
-**Note**: The best performances are belonging to activations and attentions at last layer.
+<!-- **Note**: The best performances are belonging to activations and attentions at last layer. -->
 
-## Plots
+<!-- ## Plots
 
 Data analysis (the plots in the paper) is done in **plots_tsne.ipynb** and **plots_entropy_and_pca.ipynb**. It corresponds to the 5.1 **Qualitative analysis** section of the paper, however most plots are collected in the appendix.
 
 Once data is collected, we are iterested in comparative plots of softmax/IG attributions/activations across the models and datasets.
 This is the reason why we collect the large dicts at the beginning of both notebooks. This is also a time consuming process, but note
 that the notebook(s) can also be used on one model/dataset for fast experimentation.
-Example: the data source directoiry (in our case **results**) would contain only capitals/falcon-40b_capitals_7_18.pickle while **founders**, **trivia**, **place_of_birth** stay empty.
+Example: the data source directoiry (in our case **results**) would contain only capitals/falcon-40b_capitals_7_18.pickle while **founders**, **trivia**, **place_of_birth** stay empty. -->
 
 ## SelfCheckGPT
 
