@@ -16,10 +16,11 @@ There are 2 datasets: **TriviaQA** and **TREX**.
 
 In particular, while **result_collector.py** uses **TriviaQA** directly, for TREX we do/save a sampling in the form of founders/capitals/place_of_birth.csv.
 In the case of doing experiment on TREX, run `trex_parser.py` to create these data files first.
-```sh
+<!-- ```sh
 # trex
 python trex_parser.py
-```
+``` -->
+However, we mostly focus on **TriviaQA**.
 
 ## Artifact data collection with original hook function
 
@@ -46,7 +47,7 @@ python result_collector_pyvene.py
 
 ## Classifiers
 
-Training classifiers on IG, softmax, attention scores, FCC activations, contextual embeddings across the models/datasets. **model.py** consists of several different classifier architectures (Single layer MLP, multi-layer DNN + Residual block, and Multi-layer Transformer + Residual block) for the artifacts, then train and test them to get AUROC score with **eval_classifier.py** on the data collected by **result_collector.py**. The evaluated result (AUROC score) then be saved in **score_result.txt**
+Training classifiers on IG, softmax, attention scores, FCC activations, contextual embeddings across the models/datasets. **model.py** consists of several different classifier architectures (Single layer MLP, multi-layer DNN + Residual block, and Multi-layer Transformer + Residual block) for the artifacts, then train and test them to get AUROC score with **eval_classifier.py** on the data collected by **result_collector.py**. The evaluated result (AUROC score) then be saved in **score_result.txt**.
 ```sh
 python eval_classifier.py
 ```
