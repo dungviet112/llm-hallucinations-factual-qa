@@ -22,6 +22,9 @@ os.makedirs(save_model_dir, exist_ok=True)
 # path to the results file containing model features and their corresponding labels (hallu/non-hallu)
 results_file = "./results/10000_samples_OpenLlama/open_llama_7b_trivia_qa_start-0_end-10000_6_16.pickle"
 
+# initialize classifier
+classifier = SingleMLP_Classifier
+
 def gen_classifier_roc(inputs, labels, model, save_name="classifier_model.pt"):
     X_train, X_test, y_train, y_test = train_test_split(inputs, labels.astype(int), test_size=0.2, random_state=123)
     classifier_model = model(X_train.shape[1]).to(device)
@@ -50,6 +53,7 @@ def gen_classifier_roc(inputs, labels, model, save_name="classifier_model.pt"):
 all_results = {}
 try:
     classifier_results = {}
+    print(f"Loading data from {results_file}")
     results, correct = load_hidden_states(results_file)
 
     # attributes
@@ -74,19 +78,19 @@ try:
 
     # logits
     first_logits = np.stack([sp.special.softmax(i[j]) for i, j in zip(results['logits'], results['start_pos'])])
-    first_logits_roc, first_logits_acc = gen_classifier_roc(first_logits, correct, model=SingleMLP_Classifier, save_name="mlp_logit.pt")
+    first_logits_roc, first_logits_acc = gen_classifier_roc(first_logits, correct, model=classifier, save_name="mlp_logit.pt")
     classifier_results['first_logits_roc'] = first_logits_roc
     classifier_results['first_logits_acc'] = first_logits_acc
 
     # fully connected
     for layer in range(results['first_fully_connected'][0].shape[0]):
-        layer_roc, layer_acc = gen_classifier_roc(np.stack([i[layer] for i in results['first_fully_connected']]), correct, model=SingleMLP_Classifier, save_name=f"mlp_fc_layer_{layer}.pt")
+        layer_roc, layer_acc = gen_classifier_roc(np.stack([i[layer] for i in results['first_fully_connected']]), correct, model=classifier, save_name=f"mlp_fc_layer_{layer}.pt")
         classifier_results[f'first_fully_connected_roc_{layer}'] = layer_roc
         classifier_results[f'first_fully_connected_acc_{layer}'] = layer_acc
 
     # attention
     for layer in range(results['first_attention'][0].shape[0]):
-        layer_roc, layer_acc = gen_classifier_roc(np.stack([i[layer] for i in results['first_attention']]), correct, model=SingleMLP_Classifier, save_name=f"mlp_attn_layer_{layer}.pt")
+        layer_roc, layer_acc = gen_classifier_roc(np.stack([i[layer] for i in results['first_attention']]), correct, model=classifier, save_name=f"mlp_attn_layer_{layer}.pt")
         classifier_results[f'first_attention_roc_{layer}'] = layer_roc
         classifier_results[f'first_attention_acc_{layer}'] = layer_acc
     
@@ -99,7 +103,7 @@ try:
         pooled_embeddings.append(pooled_emb)
 
     pooled_embeddings_tensor = torch.stack(pooled_embeddings)
-    context_emb_roc, context_emb_acc = gen_classifier_roc(pooled_embeddings_tensor, correct, model=SingleMLP_Classifier, save_name="mlp_context_emb.pt")
+    context_emb_roc, context_emb_acc = gen_classifier_roc(pooled_embeddings_tensor, correct, model=classifier, save_name="mlp_context_emb.pt")
     classifier_results['context_emb_roc'] = context_emb_roc
     classifier_results['context_emb_acc'] = context_emb_acc
     
@@ -108,4 +112,10 @@ except Exception as err:
     print(err)
 
 for k,v in all_results.items():
-    print(k, v)
+    for kk, vv in v.items():
+        print(f"{kk}: {vv}")
+        
+with open("score_result.txt", "a") as text_file:
+    for k,v in all_results.items():
+        for kk, vv in v.items():
+            text_file.write(str(kk) + " " + str(vv) + "\n")

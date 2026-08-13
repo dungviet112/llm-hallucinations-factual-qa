@@ -1,8 +1,7 @@
 # Identifying Hallucinations in LLMs
 
-## AUROC result on LLMs
-
-Up-to-date results at [Google Sheet](https://docs.google.com/spreadsheets/d/13OxSkdCUJkjC2ns8Yjr0LK3VmrzOxTWAftfgcCyvR1k/edit?usp=sharing).
+## Overview
+This repo investigates the hallucination detection by treating the problem as binary classification over model artifacts, showing that internal representations can reveal whether an answer is likely to be factual before generation is fully complete.
 
 ## Setup
 
@@ -24,18 +23,15 @@ python trex_parser.py
 
 ## Artifact data collection with original hook function
 
-Classifiers and plots will be created on model/derived artifacts like activations, attention, softmax output, attributions, contextual embeddings.
-Artifact data collection is done in **result_collector.py**, is **VERY** time consuming and best done on a powerful machine.
-It will write picke files and it gathers more data than used in the paper (in the paper we look at last layer activations, etc).
-Once acquired however, the same data can be used for a broader analysis if so desired.
+Artifact data collection is done in **result_collector.py**.
+For every sample, we gather some information including Q-A pair from dataset, response, artifacts of model (softmax probablities, feature attributions, self-attention, fully connected layer activations, and contextual embeddings), and label (hallucination/non-hallucination) then save them in pickle file.
 
-We use models/tokenizers from Huggingface. Softmax/logits are collected directly from the model, attributions are collected using the 
-integrated gradients (IG) method available in Captum and activations and attentions (model internal states) are collected using the **register_forward_hook** functionality.
+Models/tokenizers are called from Huggingface. Softmax and contextual embeddings are collected directly from the model, attributions are collected using the integrated gradients (IG) method available in Captum and activations and attentions (model internal states) are collected using the **register_forward_hook** functionality.
 ```sh
 python result_collector.py
 ```
 
-## Artifact data collection with pyvene
+<!-- ## Artifact data collection with pyvene
 
 Artifacts includes activations, attention, softmax output, attributions.
 Artifact data collection is done in **result_collector_pyvene.py** then is written in picke files.
@@ -44,13 +40,13 @@ Models/tokenizers are called from Huggingface. Softmax/logits are collected dire
 integrated gradients (IG) method available in Captum and activations and attentions are collected using the **pyvene** package which helps reduce the complexity of the code when collecting model internal states.
 ```sh
 python result_collector_pyvene.py
-```
+``` -->
 
-The experiment in **test_pyvene.ipynb** is about collecting artifacts from a sample QA after integrating with pyvene (the target is to check the type, shape of output)
+<!-- The experiment in **test_pyvene.ipynb** is about collecting artifacts from a sample QA after integrating with pyvene (the target is to check the type, shape of output) -->
 
 ## Classifiers
 
-Training classifiers on IG, softmax, attention scores, FCC activations, contextual embeddings across the models/datasets. **model.py** consists of several different classifier architectures for the artifacts, then train and test them to get AUROC score with **eval_classifier.py** on the data collected by **result_collector.py**. The results are in the **Google Sheet** link above.
+Training classifiers on IG, softmax, attention scores, FCC activations, contextual embeddings across the models/datasets. **model.py** consists of several different classifier architectures (Single layer MLP, multi-layer DNN + Residual block, and Multi-layer Transformer + Residual block) for the artifacts, then train and test them to get AUROC score with **eval_classifier.py** on the data collected by **result_collector.py**. The evaluated result (AUROC score) then be saved in **score_result.txt**
 ```sh
 python eval_classifier.py
 ```
@@ -68,6 +64,5 @@ Example: the data source directoiry (in our case **results**) would contain only
 
 ## SelfCheckGPT
 
-We try to use selfcheckgpt and compare to our results; a notebook is included. SelfcheckGPT does not perform well
-with our models; we hypothesize that this is because the models we use are small and the output for nonzero temperature is often subpar. 
-We use the **bert-score** and **n-gram** methods from the selfcheckgpt paper in **self_check_gpt.ipynb** and we report the results in the appendix **B** (additional results) of the paper.
+In this repo, selfcheckgpt is the baseline and compared to proposed method; a notebook is included. SelfcheckGPT does not perform well as the classifier, we hypothesize that this is because the models we use are small and the output for nonzero temperature is often subpar.
+Selfcheckgpt uses the **bert-score** and **n-gram** methods from the its paper in **self_check_gpt.ipynb**.

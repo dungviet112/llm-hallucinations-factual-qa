@@ -1,6 +1,6 @@
 pip install uv
 uv venv --python 3.10 
-source hallucination/bin/activate
+source .venv/bin/activate
 uv pip install numpy scipy ipykernel pandas scikit-learn
 uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 uv pip install git+https://github.com/huggingface/transformers.git
