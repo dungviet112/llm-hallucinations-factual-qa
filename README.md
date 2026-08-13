@@ -24,8 +24,9 @@ However, we mostly focus on **TriviaQA**.
 
 ## Artifact data collection with original hook function
 
-Artifact data collection is done in **result_collector.py**.
-For every sample, we gather some information including Q-A pair from dataset, response, artifacts of model (softmax probablities, feature attributions, self-attention, fully connected layer activations, and contextual embeddings), and label (hallucination/non-hallucination) then save them in pickle file.
+Artifact data collection is done in **result_collector.py**. According to the original method from the paper, for every sample, we gather some information including Q-A pair from dataset, response, artifacts of model (softmax probablities, feature attributions, self-attention, fully connected layer activations), and label (hallucination/non-hallucination) then save them in pickle file.
+
+The extension introduced in this project extracts the **contextual embeddings** of the generated response from the model hidden states. For a response consisting of multiple tokens, the hidden representation of each token can be extracted from a selected model layer: $h_1, h_2, ..., h_T$ where each $h_i$ is the contextual representation of token $i$. These token level representations can then be aggregated by mean pooling. The final vector provides a compact representation of the response in the latent space and is treated as other model artifacts.
 
 Models/tokenizers are called from Huggingface. Softmax and contextual embeddings are collected directly from the model, attributions are collected using the integrated gradients (IG) method available in Captum and activations and attentions (model internal states) are collected using the **register_forward_hook** functionality.
 ```sh
@@ -66,4 +67,7 @@ Example: the data source directoiry (in our case **results**) would contain only
 ## SelfCheckGPT
 
 In this repo, selfcheckgpt is the baseline and compared to proposed method; a notebook is included. SelfcheckGPT does not perform well as the classifier, we hypothesize that this is because the models we use are small and the output for nonzero temperature is often subpar.
-Selfcheckgpt uses the **bert-score** and **n-gram** methods from the its paper in **self_check_gpt.ipynb**.
+Selfcheckgpt uses the **bert-score** and **n-gram** methods from the its paper in **self_check_gpt.py**.
+```sh
+python self_check_gpt.py
+```
