@@ -1,0 +1,25 @@
+numpy
+scipy
+pandas
+scikit-learn
+ipykernel
+
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch
+torchvision
+torchaudio
+
+transformers
+matplotlib
+seaborn
+sentencepiece
+evaluate
+einops
+rouge-score
+gputil
+captum
+python-dotenv
+accelerate
+selfcheckgpt
+spacy
+tqdm
