@@ -5,22 +5,27 @@ This repo investigates the hallucination detection by treating the problem as bi
 
 ## Setup
 
-Set up the conda env by running `setup.sh`
+Set up the conda env by downloading dependencies with **Python 3.10**
 ```sh
-bash setup.sh
+pip install -r requirements.txt
 ```
 
 ## Data sources
 
-There are 2 datasets: **TriviaQA** and **TREX**.
+There are 2 datasets: **TriviaQA** and **TREX**. The datasets will be saved in `./data/` folder after downloading.
 
-In particular, while **result_collector.py** uses **TriviaQA** directly, for TREX we do/save a sampling in the form of founders/capitals/place_of_birth.csv.
-In the case of doing experiment on TREX, run `trex_parser.py` to create these data files first.
-<!-- ```sh
-# trex
-python trex_parser.py
-``` -->
-However, we mostly focus on **TriviaQA**.
+**TriviaQA** consists of a set of numerous trivia questions, answers and evidence tuples, but here we only use randomly 10000 questions from the no-context setting where the model is only provided with questions without any supporting information.
+```sh
+# TriviaQA sample format
+{
+    "question": question
+    "answer": list of keywords
+}
+```
+
+**TREX** consists of relationship triplets containing pairs of entities and their relationships, there are three different relationship categories: Capitals, Founders and Places of Birth.
+
+However, we mostly focus on **TriviaQA** in this research.
 
 ## Artifact data collection with original hook function
 
