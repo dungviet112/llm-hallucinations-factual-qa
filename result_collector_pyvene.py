@@ -28,7 +28,7 @@ trex_data_to_question_template = {
 }
 
 # IO
-data_dir = Path(".") # Where our data files are stored
+data_dir = Path("./data/") # Where our data files are stored
 model_dir = Path("./.cache/models/") # Cache for huggingface models
 results_dir = Path("./results/") # Directory for storing results
 

@@ -18,7 +18,7 @@ from string import Template
 
 # Data related params
 iteration = 0
-interval = 10000 # We run the inference on these many examples at a time to achieve parallelization
+interval = 10000
 start = iteration * interval
 end = start + interval
 dataset_name =  "trivia_qa" #"place_of_birth" #"capitals" #"founders"
@@ -29,7 +29,7 @@ trex_data_to_question_template = {
 }
 
 # IO
-data_dir = Path(".") # Where our data files are stored
+data_dir = Path("./data/") # Where our data files are stored
 model_dir = Path("./.cache/models/") # Cache for huggingface models
 results_dir = Path("./results/") # Directory for storing results
 
@@ -44,7 +44,7 @@ internal_batch_size = 4
 # Model
 model_name = "Llama-3.1-8B-Instruct" #"open_llama_7b" #"gpt2" #"llama-2-7b-hf" #"falcon-7b" #"opt-30b"
 layer_number = -1
-# hardcode below,for now. Could dig into all models but they take a while to load
+# hardcode below, for now. Could dig into all models but they take a while to load
 model_num_layers = {
     "falcon-40b" : 60,
     "falcon-7b" : 32,

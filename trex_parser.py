@@ -7,7 +7,7 @@ from multiprocessing import Pool
 
 
 N_PROCESSES=8  # Num CPU cores for processing TREX files in parallel
-TREX_PATH = Path('./trex_uncompressed/')  # Location of the uncompressed TREX dir
+TREX_PATH = Path('./data/trex_uncompressed/')  # Location of the uncompressed TREX dir
 WIKI_CODINGS = {
     'P19': 'place_of_birth', # surface form: place of birth & born in
     'P112': 'founders',    # surface form: founder & founded by
