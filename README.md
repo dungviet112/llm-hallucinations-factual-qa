@@ -10,6 +10,8 @@ Set up the conda env by downloading dependencies with **Python 3.10**
 pip install -r requirements.txt
 ```
 
+Clone the template configuration file `.env.example` to create your local environment file `.env` then add the Hugging Face access token to open-source LLMs in that file.
+
 ## Data sources
 
 There are 2 datasets: **TriviaQA** and **TREX**. The datasets will be saved in `./data/` folder after downloading.
