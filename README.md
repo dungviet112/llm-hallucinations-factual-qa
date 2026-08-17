@@ -1,4 +1,4 @@
-# Identifying Hallucinations in LLMs
+# Early Detection of Hallucinations in LLMs
 
 ## Overview
 This repository implements the investigation for hallucination detection by treating the problem as binary classification over model artifacts, showing that internal representations can reveal whether an answer is likely to be factual before generation is fully complete.
