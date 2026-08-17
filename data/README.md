@@ -3,5 +3,5 @@
 ## TriviaQA
 **TriviaQA** will be downloaded directly via `datasets` library and saved in this `./data/` folder when running `./result_collector.py` 
 
-## TREX
-Run `./trex_parser.py` to download and split into founders/capitals/place_of_birth.csv
+## FAVA-Annotation
+Download the json file hosted [[here](https://huggingface.co/datasets/fava-uw/fava-data/blob/main/annotations.json)]
