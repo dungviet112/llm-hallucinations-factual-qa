@@ -23,3 +23,5 @@ accelerate
 selfcheckgpt
 spacy
 tqdm
+fschat
+beautifulsoup4
