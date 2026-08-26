@@ -14,19 +14,17 @@ from functools import partial
 import re
 from captum.attr import IntegratedGradients
 from string import Template
+import json
+from bs4 import BeautifulSoup
+from fastchat.model import get_conversation_template
 
+dataset_name = "fava_annotation" #"trivia_qa"
 
-# Data related params
+# Data related params (Trivia_QA only)
 iteration = 0
 interval = 10000
 start = iteration * interval
 end = start + interval
-dataset_name =  "trivia_qa" #"place_of_birth" #"capitals" #"founders"
-trex_data_to_question_template = {
-    "capitals": Template("What is the capital of $source?"),
-    "place_of_birth": Template("Where was $source born?"),
-    "founders": Template("Who founded $source?"),
-}
 
 # IO
 data_dir = Path("./data/") # Where our data files are stored
@@ -42,7 +40,7 @@ ig_steps = 64
 internal_batch_size = 4
 
 # Model
-model_name = "Llama-3.1-8B-Instruct" #"open_llama_7b" #"gpt2" #"llama-2-7b-hf" #"falcon-7b" #"opt-30b"
+model_name = "Meta-Llama-3-8B-Instruct" #"Llama-3.1-8B-Instruct" #"open_llama_7b" #"gpt2" #"llama-2-7b-hf" #"falcon-7b" #"opt-30b"
 layer_number = -1
 # hardcode below, for now. Could dig into all models but they take a while to load
 model_num_layers = {
@@ -55,6 +53,7 @@ model_num_layers = {
     "llama-2-7b-hf" : 32,
     "gpt2" : 12,
     "Qwen2.5-7B-Instruct" : 28,
+    "Meta-Llama-3-8B-Instruct" : 32,
     "Llama-3.1-8B-Instruct" : 32,
 }
 assert layer_number < model_num_layers[model_name]
@@ -69,6 +68,7 @@ model_repos = {
     "llama-2-7b-hf" : ("meta-llama", f".*model.layers.{coll_str}.mlp.up_proj", f".*model.layers.{coll_str}.self_attn.o_proj"),
     "gpt2" : ("openai-community", f".*transformer.h.{coll_str}.mlp.c_proj", f".*transformer.h.{coll_str}.attn.c_proj"),
     "Qwen2.5-7B-Instruct" : ("Qwen", f".*model.layers.{coll_str}.mlp.up_proj", f".*model.layers.{coll_str}.self_attn.o_proj"),
+    "Meta-Llama-3-8B-Instruct" : ("meta-llama", f".*model.layers.{coll_str}.mlp.up_proj", f".*model.layers.{coll_str}.self_attn.o_proj"),
     "Llama-3.1-8B-Instruct" : ("meta-llama", f".*model.layers.{coll_str}.mlp.up_proj", f".*model.layers.{coll_str}.self_attn.o_proj")
 }
 
@@ -77,6 +77,69 @@ fully_connected_hidden_layers = defaultdict(list)
 attention_hidden_layers = defaultdict(list)
 attention_forward_handles = {}
 fully_connected_forward_handles = {}
+
+# Utilities for FAVA_Annotation dataset
+_TAGS = ["entity", "relation", "sentence", "invented", "subjective", "unverifiable"]
+
+def get_modified_data():
+    with open(data_dir/"annotations.json", "r", encoding="utf-8") as f:
+        data = json.loads(f.read())
+
+    df = {
+        "prompt": [],
+        "output": [],
+        "annotated": [],
+        "modified": [],
+        "model": [],
+        "entity": [],
+        "relation": [],
+        "sentence": [],
+        "invented": [],
+        "subjective": [],
+        "unverifiable": [],
+        "hallucinated": [],
+    }
+
+    def modify(s):
+        indicator = [0, 0, 0, 0, 0, 0]
+        soup = BeautifulSoup(s, "html.parser")
+        s1 = ""
+        for t in range(len(_TAGS)):
+            indicator[t] = len(soup.find_all(_TAGS[t]))
+        for elem in soup.find_all(text=True):
+            if elem.parent.name != "delete":
+                s1 += elem
+        return s1, indicator
+
+    for i in range(len(data)):
+        df["prompt"].append(data[i]["prompt"])
+        df["output"].append(data[i]["output"])
+        df["annotated"].append(data[i]["annotated"])
+        df["model"].append(data[i]["model"])
+        modified_text, indicator = modify(data[i]["annotated"])
+        df["modified"].append(modified_text)
+        for t in range(len(_TAGS)):
+            df[_TAGS[t]].append(indicator[t])
+        df["hallucinated"].append(int(sum(indicator) > 0))
+
+    df = pd.DataFrame(df)
+    return df
+
+
+def get_fava_data(n_samples=200):
+    np.random.seed(0)
+    data = get_modified_data()
+    i1 = data["hallucinated"] == 1
+    i2 = data["hallucinated"] == 0
+    df = pd.concat(
+        [
+            data[i1][:n_samples],
+            data[i2][:n_samples],
+        ],
+        ignore_index=True,
+        sort=False,
+    )
+    return df
 
 
 def save_fully_connected_hidden(layer_name, mod, inp, out):
@@ -102,9 +165,8 @@ def get_stop_token():
 
 
 def load_data(dataset_name):
-    if dataset_name in trex_data_to_question_template.keys():
-        pd_frame = pd.read_csv(data_dir / f'{dataset_name}.csv')
-        dataset = [(pd_frame.iloc[i]['subject'], pd_frame.iloc[i]['object'].split("<OR>")) for i in range(start, min(end, len(pd_frame)))]
+    if dataset_name == "fava_annotation":
+        dataset = get_fava_data(n_samples=500)
     elif dataset_name=="trivia_qa":
         trivia_qa = load_dataset('mandarjoshi/trivia_qa', 'rc.nocontext', cache_dir=str(data_dir))
         full_dataset = []
@@ -171,6 +233,38 @@ def answer_trivia(question, targets, model, tokenizer):
             break
     return response, str_response, logits, start_pos, correct, generated_embeddings
 
+def answer_fava(model_name, data, model, tokenizer):
+    system_prompt = ""
+    labels, generated_embeddings = [], []
+
+    for i in tqdm(range(len(data))):
+        row = data.loc[i]
+
+        # define the prompt, response and labels as per the dataset
+        prompt = row["prompt"]
+        response = row["output"]
+        labels.append(1 if row["hallucinated"] == 1 else 0)
+
+        chat_template = get_conversation_template(model_name)
+        chat_template.set_system_message(system_prompt.strip())
+        chat_template.messages = []
+        chat_template.append_message(chat_template.roles[0], prompt.strip())
+        chat_template.append_message(chat_template.roles[1], response.strip())
+
+        full_prompt = chat_template.get_prompt()
+        user_prompt = full_prompt.split(response.strip())[0].strip()
+
+        tok_in_u = tokenizer(user_prompt, return_tensors="pt", add_special_tokens=True).input_ids
+        prompt_len = tok_in_u.shape[1]
+        tok_in = tokenizer(full_prompt, return_tensors="pt", add_special_tokens=True).input_ids
+
+        with torch.no_grad():
+            outputs = model(tok_in.to(device), output_hidden_states=True, return_dict=True, output_attentions=True, use_cache=False)
+        logit, hidden_act, attn = outputs.logits, outputs.hidden_states, outputs.attentions
+        last_token_embeddings = hidden_act[-1][0, prompt_len:, :].to(torch.float32).detach().cpu()  # [-1] for last layer
+        generated_embeddings.append(last_token_embeddings)
+
+    return generated_embeddings, labels
 
 def answer_trex(source, targets, model, tokenizer, question_template):
     response, logits, start_pos, generated_embeddings = answer_question(question_template.substitute(source=source), model, tokenizer)
@@ -261,72 +355,73 @@ def compute_and_save_results():
     # batch_size = 5000
     # Dataset
     dataset = load_data(dataset_name)
-    if dataset_name in trex_data_to_question_template.keys():
-        question_asker = functools.partial(answer_trex, question_template=trex_data_to_question_template[dataset_name])
-    elif dataset_name == "trivia_qa":
-        question_asker = answer_trivia
-    else:
-        raise ValueError(f"Unknown dataset name {dataset_name}.")
-
+    
     # Model
     model_loader = LlamaForCausalLM if "llama" in model_name else AutoModelForCausalLM
     token_loader = LlamaTokenizer if "llama" in model_name else AutoTokenizer
     tokenizer = token_loader.from_pretrained(f'{model_repos[model_name][0]}/{model_name}')
-
     model = model_loader.from_pretrained(f'{model_repos[model_name][0]}/{model_name}',
-                                         cache_dir=model_dir,
-                                         device_map=device,
-                                         # quantization_config=quant_config, 
-                                         torch_dtype=torch.bfloat16,
-                                         # load_in_4bit=True,
-                                         trust_remote_code=True)
-    forward_func = partial(model_forward, model=model, extra_forward_args={})
-    embedder = get_embedder(model)
+                                        cache_dir=model_dir,
+                                        device_map=device,
+                                        torch_dtype=torch.bfloat16,
+                                        trust_remote_code=True)
+    
+    if dataset_name == "fava_annotation":
+        generated_embeddings, labels = answer_fava(f'{model_repos[model_name][0]}/{model_name}', dataset, model, tokenizer)
+        results = defaultdict(list)
+        results['generated_embeddings'] = generated_embeddings
+        results['correct'] = labels
 
-    # Prepare to save the internal states
-    for name, module in model.named_modules():
-        if re.match(f'{model_repos[model_name][1]}$', name):
-            fully_connected_forward_handles[name] = module.register_forward_hook(
-                partial(save_fully_connected_hidden, name))
-        if re.match(f'{model_repos[model_name][2]}$', name):
-            attention_forward_handles[name] = module.register_forward_hook(partial(save_attention_hidden, name))
+    elif dataset_name == "trivia_qa":            
+        forward_func = partial(model_forward, model=model, extra_forward_args={})
+        embedder = get_embedder(model)
 
-    # Generate results
-    results = defaultdict(list)
-    for idx in tqdm(range(len(dataset))):
-        fully_connected_hidden_layers.clear()
-        attention_hidden_layers.clear()
+        # Prepare to save the internal states
+        for name, module in model.named_modules():
+            if re.match(f'{model_repos[model_name][1]}$', name):
+                fully_connected_forward_handles[name] = module.register_forward_hook(
+                    partial(save_fully_connected_hidden, name))
+            if re.match(f'{model_repos[model_name][2]}$', name):
+                attention_forward_handles[name] = module.register_forward_hook(partial(save_attention_hidden, name))
 
-        question, answers = dataset[idx]
-        response, str_response, logits, start_pos, correct, generated_embeddings = question_asker(question, answers, model, tokenizer)
-        layer_start, layer_end = get_start_end_layer(model)
-        first_fully_connected = collect_fully_connected(start_pos, layer_start, layer_end)
-        first_attention = collect_attention(start_pos, layer_start, layer_end)
-        attributes_first = get_ig(question, forward_func, tokenizer, embedder, model)
-        generated_embeddings = np.stack(generated_embeddings)
+        # Generate results
+        results = defaultdict(list)
+        for idx in tqdm(range(len(dataset))):
+            fully_connected_hidden_layers.clear()
+            attention_hidden_layers.clear()
 
-        results['question'].append(question)
-        results['answers'].append(answers)
-        results['response'].append(response)
-        results['str_response'].append(str_response)
-        results['logits'].append(logits.to(torch.float32).cpu().numpy())
-        results['start_pos'].append(start_pos)
-        results['correct'].append(correct)
-        results['first_fully_connected'].append(first_fully_connected)
-        # results['final_fully_connected'].append(final_fully_connected)
-        results['first_attention'].append(first_attention)
-        # results['final_attention'].append(final_attention)
-        results['attributes_first'].append(attributes_first)
-        results['generated_embeddings'].append(generated_embeddings)
+            question, answers = dataset[idx]
+            response, str_response, logits, start_pos, correct, generated_embeddings = answer_trivia(question, answers, model, tokenizer)
+            layer_start, layer_end = get_start_end_layer(model)
+            first_fully_connected = collect_fully_connected(start_pos, layer_start, layer_end)
+            first_attention = collect_attention(start_pos, layer_start, layer_end)
+            attributes_first = get_ig(question, forward_func, tokenizer, embedder, model)
+            generated_embeddings = np.stack(generated_embeddings)
 
-        # if (idx + 1) % batch_size == 0 or idx == len(dataset)-1:
-        #     with open(results_dir/f"{model_name}_{dataset_name}_batch_{idx//batch_size}.pickle", "wb") as f:
-        #         f.write(pickle.dumps(results))
-        #     results.clear()
-              
+            results['question'].append(question)
+            results['answers'].append(answers)
+            results['response'].append(response)
+            results['str_response'].append(str_response)
+            results['logits'].append(logits.to(torch.float32).cpu().numpy())
+            results['start_pos'].append(start_pos)
+            results['correct'].append(correct)
+            results['first_fully_connected'].append(first_fully_connected)
+            # results['final_fully_connected'].append(final_fully_connected)
+            results['first_attention'].append(first_attention)
+            # results['final_attention'].append(final_attention)
+            results['attributes_first'].append(attributes_first)
+            results['generated_embeddings'].append(generated_embeddings)
+
+            # if (idx + 1) % batch_size == 0 or idx == len(dataset)-1:
+            #     with open(results_dir/f"{model_name}_{dataset_name}_batch_{idx//batch_size}.pickle", "wb") as f:
+            #         f.write(pickle.dumps(results))
+            #     results.clear()
+                        
+    else:
+        raise ValueError(f"Unknown dataset name {dataset_name}.")
+
     with open(results_dir/f"{model_name}_{dataset_name}_start-{start}_end-{end}_{datetime.now().month}_{datetime.now().day}.pickle", "wb") as outfile:
-        outfile.write(pickle.dumps(results))
-
+                outfile.write(pickle.dumps(results))
 
 if __name__ == '__main__':
     compute_and_save_results()

@@ -20,7 +20,7 @@ save_model_dir = "./models"
 os.makedirs(save_model_dir, exist_ok=True)
 
 # path to the results file containing model features and their corresponding labels (hallu/non-hallu)
-results_file = "./results/10000_samples_OpenLlama/open_llama_7b_trivia_qa_start-0_end-10000_6_16.pickle"
+results_file = "./results/open_llama_7b_trivia_qa_start-0_end-10000_6_16.pickle"
 
 # initialize classifier
 classifier = SingleMLP_Classifier
@@ -56,44 +56,45 @@ try:
     print(f"Loading data from {results_file}")
     results, correct = load_hidden_states(results_file)
 
-    # attributes
-    X_train, X_test, y_train, y_test = train_test_split(results['attributes_first'], correct.astype(int), test_size=0.2, random_state=1234)
-    rnn_model = RNN_Classifier().to(device)
-    optimizer = torch.optim.AdamW(rnn_model.parameters(), lr=learning_rate, weight_decay=weight_decay)
-    for step in tqdm(range(1001)):
-        x_sub, y_sub = zip(*random.sample(list(zip(X_train, y_train)), batch_size))
-        y_sub = torch.tensor(y_sub).to(torch.long).to(device)
-        optimizer.zero_grad()
-        preds = torch.stack([rnn_model(torch.tensor(i).view(1, -1, 1).to(torch.float).to(device)) for i in x_sub])
-        loss = torch.nn.functional.cross_entropy(preds, y_sub)
-        loss.backward()
-        optimizer.step()
-    torch.save(rnn_model.state_dict(), f"{save_model_dir}/rnn_model.pt")
-    
-    preds = torch.stack([rnn_model(torch.tensor(i).view(1, -1, 1).to(torch.float).to(device)) for i in X_test])
-    preds = torch.nn.functional.softmax(preds, dim=1)
-    prediction_classes = (preds[:,1]>0.5).type(torch.long).cpu()
-    classifier_results['attribution_rnn_roc'] = roc_auc_score(y_test, preds[:,1].detach().cpu().numpy())
-    classifier_results['attribution_rnn_acc'] = (prediction_classes.numpy()==y_test).mean()
+    if "trivia_qa" in results_file:
+        # attributes
+        X_train, X_test, y_train, y_test = train_test_split(results['attributes_first'], correct.astype(int), test_size=0.2, random_state=1234)
+        rnn_model = RNN_Classifier().to(device)
+        optimizer = torch.optim.AdamW(rnn_model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+        for step in tqdm(range(1001)):
+            x_sub, y_sub = zip(*random.sample(list(zip(X_train, y_train)), batch_size))
+            y_sub = torch.tensor(y_sub).to(torch.long).to(device)
+            optimizer.zero_grad()
+            preds = torch.stack([rnn_model(torch.tensor(i).view(1, -1, 1).to(torch.float).to(device)) for i in x_sub])
+            loss = torch.nn.functional.cross_entropy(preds, y_sub)
+            loss.backward()
+            optimizer.step()
+        torch.save(rnn_model.state_dict(), f"{save_model_dir}/rnn_model.pt")
+        
+        preds = torch.stack([rnn_model(torch.tensor(i).view(1, -1, 1).to(torch.float).to(device)) for i in X_test])
+        preds = torch.nn.functional.softmax(preds, dim=1)
+        prediction_classes = (preds[:,1]>0.5).type(torch.long).cpu()
+        classifier_results['attribution_rnn_roc'] = roc_auc_score(y_test, preds[:,1].detach().cpu().numpy())
+        classifier_results['attribution_rnn_acc'] = (prediction_classes.numpy()==y_test).mean()
 
-    # logits
-    first_logits = np.stack([sp.special.softmax(i[j]) for i, j in zip(results['logits'], results['start_pos'])])
-    first_logits_roc, first_logits_acc = gen_classifier_roc(first_logits, correct, model=classifier, save_name="mlp_logit.pt")
-    classifier_results['first_logits_roc'] = first_logits_roc
-    classifier_results['first_logits_acc'] = first_logits_acc
+        # logits
+        first_logits = np.stack([sp.special.softmax(i[j]) for i, j in zip(results['logits'], results['start_pos'])])
+        first_logits_roc, first_logits_acc = gen_classifier_roc(first_logits, correct, model=classifier, save_name="mlp_logit.pt")
+        classifier_results['first_logits_roc'] = first_logits_roc
+        classifier_results['first_logits_acc'] = first_logits_acc
 
-    # fully connected
-    for layer in range(results['first_fully_connected'][0].shape[0]):
-        layer_roc, layer_acc = gen_classifier_roc(np.stack([i[layer] for i in results['first_fully_connected']]), correct, model=classifier, save_name=f"mlp_fc_layer_{layer}.pt")
-        classifier_results[f'first_fully_connected_roc_{layer}'] = layer_roc
-        classifier_results[f'first_fully_connected_acc_{layer}'] = layer_acc
+        # fully connected
+        for layer in range(results['first_fully_connected'][0].shape[0]):
+            layer_roc, layer_acc = gen_classifier_roc(np.stack([i[layer] for i in results['first_fully_connected']]), correct, model=classifier, save_name=f"mlp_fc_layer_{layer}.pt")
+            classifier_results[f'first_fully_connected_roc_{layer}'] = layer_roc
+            classifier_results[f'first_fully_connected_acc_{layer}'] = layer_acc
 
-    # attention
-    for layer in range(results['first_attention'][0].shape[0]):
-        layer_roc, layer_acc = gen_classifier_roc(np.stack([i[layer] for i in results['first_attention']]), correct, model=classifier, save_name=f"mlp_attn_layer_{layer}.pt")
-        classifier_results[f'first_attention_roc_{layer}'] = layer_roc
-        classifier_results[f'first_attention_acc_{layer}'] = layer_acc
-    
+        # attention
+        for layer in range(results['first_attention'][0].shape[0]):
+            layer_roc, layer_acc = gen_classifier_roc(np.stack([i[layer] for i in results['first_attention']]), correct, model=classifier, save_name=f"mlp_attn_layer_{layer}.pt")
+            classifier_results[f'first_attention_roc_{layer}'] = layer_roc
+            classifier_results[f'first_attention_acc_{layer}'] = layer_acc
+        
     # contextual embeddings
     pooled_embeddings = []
     for i in range(len(results['generated_embeddings'])):
