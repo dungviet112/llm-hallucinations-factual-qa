@@ -8,6 +8,7 @@ trivia_qa/
 results/
 *.pickle
 selfcheck_results/
+*.json
 
 # Model files
 models/
