@@ -3,9 +3,12 @@ import scipy as sp
 import os
 import torch
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import roc_auc_score, confusion_matrix
 import random
 from tqdm import tqdm
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 from model import *
 from data_reader import load_hidden_states
@@ -48,7 +51,60 @@ def gen_classifier_roc(inputs, labels, model, save_name="classifier_model.pt"):
     with torch.no_grad():
         pred = torch.nn.functional.softmax(classifier_model(X_test), dim=1)
         prediction_classes = (pred[:,1]>0.5).type(torch.long).cpu()
-        return roc_auc_score(y_test.cpu(), pred[:,1].cpu()), (prediction_classes.numpy()==y_test.cpu().numpy()).mean()
+        return roc_auc_score(y_test.cpu(), pred[:,1].cpu()), (prediction_classes.numpy()==y_test.cpu().numpy()).mean(), prediction_classes.numpy(), y_test.cpu().numpy()
+
+
+def compute_confusion_stats(y_true, y_pred, labels=(0, 1)):
+    cm = confusion_matrix(y_true, y_pred, labels=list(labels))
+    tn, fp, fn, tp = cm.ravel()
+    stats = {
+        "TP": int(tp),
+        "TN": int(tn),
+        "FP": int(fp),
+        "FN": int(fn),
+        "accuracy": float((tp + tn) / cm.sum()),
+        "precision": float(tp / (tp + fp)) if (tp + fp) > 0 else 0.0,
+        "recall": float(tp / (tp + fn)) if (tp + fn) > 0 else 0.0,
+    }
+    return stats, cm
+
+
+def plot_confusion_matrix(cm, labels=("Hallucinated", "Non-hallucinated"), save_path="./results/confusion_matrix.png"):
+    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+    fig, ax = plt.subplots(figsize=(6, 5), facecolor="white")
+    ax.set_facecolor("white")
+
+    cmap = plt.cm.Blues
+    img = ax.imshow(cm, cmap=cmap, vmin=0, vmax=max(1, cm.max()))
+
+    ax.set_xticks(np.arange(len(labels)))
+    ax.set_yticks(np.arange(len(labels)))
+    ax.set_xticklabels(labels, color="#0f172a", fontsize=11)
+    ax.set_yticklabels(labels, color="#0f172a", fontsize=11)
+    ax.set_xlabel("Predicted label", color="#0f172a", fontsize=11)
+    ax.set_ylabel("True label", color="#0f172a", fontsize=11)
+    ax.set_title("Hallucination Classifier Confusion Matrix", color="#0f172a", fontsize=12, pad=10)
+    ax.tick_params(axis="both", colors="#0f172a")
+    for spine in ax.spines.values():
+        spine.set_color("#1f2937")
+
+    for i in range(cm.shape[0]):
+        for j in range(cm.shape[1]):
+            cell_color = cmap(img.norm(cm[i, j]))
+            brightness = 0.299 * cell_color[0] + 0.587 * cell_color[1] + 0.114 * cell_color[2]
+            text_color = "white" if brightness < 0.55 else "#111827"
+            ax.text(j, i, format(cm[i, j], "d"),
+                    ha="center", va="center",
+                    color=text_color, fontsize=11, fontweight="bold")
+
+    cbar = fig.colorbar(img, ax=ax, fraction=0.046, pad=0.04)
+    cbar.ax.yaxis.set_tick_params(color="#0f172a")
+    plt.setp(cbar.ax.get_yticklabels(), color="#0f172a")
+
+    plt.tight_layout()
+    plt.savefig(save_path, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+    return save_path
 
 all_results = {}
 try:
@@ -100,13 +156,27 @@ try:
     for i in range(len(results['generated_embeddings'])):
         embeddings = results['generated_embeddings'][i]
         emb_sequence = torch.tensor(embeddings, dtype=torch.float32)
-        pooled_emb = torch.mean(emb_sequence, dim=0)
+        # pooled_emb = torch.mean(emb_sequence, dim=0)  # mean pooling
+        pooled_emb = torch.amax(emb_sequence, dim=0)    # max pooling
         pooled_embeddings.append(pooled_emb)
 
     pooled_embeddings_tensor = torch.stack(pooled_embeddings)
-    context_emb_roc, context_emb_acc = gen_classifier_roc(pooled_embeddings_tensor, correct, model=classifier, save_name="mlp_context_emb.pt")
+    # pooled_embeddings_tensor = np.stack(results['generated_embeddings'])
+    context_emb_roc, context_emb_acc, prediction_classes, y_true = gen_classifier_roc(pooled_embeddings_tensor, correct, model=classifier, save_name="mlp_context_emb.pt")
+    confusion_stats, confusion_matrix_values = compute_confusion_stats(y_true, prediction_classes, labels=(0, 1))
+    confusion_plot_path = plot_confusion_matrix(
+        confusion_matrix_values,
+        labels=("Hallucinated", "Non-hallucinated"),
+        # title="Confusion Matrix",
+        save_path="./results/2100_samples_SATBench_Llama3.1-8B/confusion_matrix_hallu.png"
+    )
+
     classifier_results['context_emb_roc'] = context_emb_roc
     classifier_results['context_emb_acc'] = context_emb_acc
+    classifier_results['TP'] = confusion_stats['TP']
+    classifier_results['TN'] = confusion_stats['TN']
+    classifier_results['FP'] = confusion_stats['FP']
+    classifier_results['FN'] = confusion_stats['FN']
     
     all_results[results_file] = classifier_results.copy()
 except Exception as err:
@@ -116,7 +186,8 @@ for k,v in all_results.items():
     for kk, vv in v.items():
         print(f"{kk}: {vv}")
         
-with open("score_result.txt", "a") as text_file:
+with open("./results/2100_samples_SATBench_Llama3.1-8B/score_result_max512_temp0.0_CoT_steps.txt", "a") as text_file:
+    text_file.write(f"Results for {str(classifier)}:\n")
     for k,v in all_results.items():
         for kk, vv in v.items():
             text_file.write(str(kk) + " " + str(vv) + "\n")
