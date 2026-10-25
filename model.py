@@ -75,7 +75,7 @@ class DNN_Classifier(torch.nn.Module):
     
 
 class Transformer_Residual_Classifier(torch.nn.Module):
-    def __init__(self, input_size, hidden_size=256, nhead=8, dropout=dropout_mlp, transformer_layers=3):
+    def __init__(self, input_size, hidden_size=256, nhead=8, dropout=0.25, transformer_layers=3):
         super(Transformer_Residual_Classifier, self).__init__()
         
         self.layer1 = torch.nn.Linear(input_size, hidden_size)

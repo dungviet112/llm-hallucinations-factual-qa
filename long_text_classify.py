@@ -39,8 +39,8 @@ weight_decay = 1e-2
 reducer_dropout = 0.2
 mlp_dropout = 0.25
 
-save_model_dir = "./models/Llama3.1-8B"
-save_name = "singlemlp_context_emb_FAVA_reduced_dim.pt"
+save_model_dir = "./models/Llama-3.1-8B-Instruct"
+save_name = "single_mlp_context_emb_FAVA_reduced_dim.pt"
 os.makedirs(save_model_dir, exist_ok=True)
 
 print(f"Effective batch size: {effective_batch_size}")
@@ -228,7 +228,7 @@ class HallucinationClassifier(nn.Module):
 # =========================================================
 # Load and split data
 # =========================================================
-results_file = "./results/Meta-Llama-3-8B-Instruct_fava_annotation_start-0_end-10000_8_26.pickle"
+results_file = "./results/460_samples_FAVA_Llama3.1-8B/Llama-3.1-8B-Instruct_fava_annotation_start-0_end-10000_10_25.pickle"
 results, correct = load_hidden_states(results_file)
 
 generated_embeddings = results["generated_embeddings"]
