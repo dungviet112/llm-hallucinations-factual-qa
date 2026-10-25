@@ -105,6 +105,14 @@ Overall, both AUROC score and Accuracy on classifier with Contextual Embeddings 
 |  | Single MLP             | Contextual Embeddings (layer 32) | 0.68 | 0.66 |
 |  | 2-layer MLP + Residual | Contextual Embeddings (layer 32) | **0.71** | **0.68** |
 
+### Table result on ProverQA
+| Model | Classifier<br> | Feature<br> | AUROC<br> | Accuracy<br> | 
+| ------| -------------- | ----------- | --------- | ------------ |
+| Llama-3.1-8B-Instruct |  [LLM-Check](https://proceedings.neurips.cc/paper_files/paper/2024/file/3c1e1fdf305195cd620c118aaa9717ad-Paper-Conference.pdf) | [Attention map score](https://proceedings.neurips.cc/paper_files/paper/2024/file/3c1e1fdf305195cd620c118aaa9717ad-Paper-Conference.pdf) | 0.44 | 0.50 |
+|  | Single MLP | Contextual Embeddings | 0.76 | 0.69 |
+|  | 2-layer MLP + Residual | Contextual Embeddings | **0.80** | **0.72** |
+
+
 <!-- **Note**: The best performances are belonging to activations and attentions at last layer. -->
 
 <!-- ## Plots
