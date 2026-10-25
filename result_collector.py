@@ -167,7 +167,7 @@ def get_stop_token():
 def load_data(dataset_name):
     if dataset_name == "fava_annotation":
         dataset = get_fava_data(n_samples=500)
-    elif dataset_name=="trivia_qa":
+    elif dataset_name == "trivia_qa":
         trivia_qa = load_dataset('mandarjoshi/trivia_qa', 'rc.nocontext', cache_dir=str(data_dir))
         full_dataset = []
         for obs in tqdm(trivia_qa['train'].shuffle(seed=42)):
@@ -207,7 +207,7 @@ def generate_response(x, model, *, max_length=100, pbar=False):
         next_token = logits.squeeze()[-1].argmax()
         x = torch.concat([x, next_token.view(1, -1)], dim=1)
         response.append(next_token)
-        if next_token == get_stop_token() and step>5:
+        if next_token == get_stop_token() and step > 5:
             break
     return torch.stack(response).cpu().numpy(), logits.squeeze(), generated_embeddings
 
@@ -372,7 +372,7 @@ def compute_and_save_results():
         results['generated_embeddings'] = generated_embeddings
         results['correct'] = labels
 
-    elif dataset_name == "trivia_qa":            
+    elif dataset_name == "trivia_qa":
         forward_func = partial(model_forward, model=model, extra_forward_args={})
         embedder = get_embedder(model)
 

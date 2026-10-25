@@ -137,7 +137,7 @@ python self_check_gpt.py
 │
 ├── result_collector.py                # Artifact collection pipeline (softmax, attention,
 │                                      #   FC activations, contextual embeddings) via TriviaQA
-├── data_reader.py                     # Dataset loading utilities for TriviaQA & FAVA-Annotation
+├── utils.py                     # Dataset loading utilities for TriviaQA & FAVA-Annotation
 ├── model.py                           # Classifier architectures:
 │                                      #   RNN, Single-layer MLP, Multi-layer MLP + Residual,
 │                                      #   Multi-layer Transformer + Residual
@@ -160,7 +160,7 @@ python self_check_gpt.py
 | File | Purpose |
 |---|---|
 | `result_collector.py` | Runs inference on TriviaQA, collects model artifacts (softmax, IG attributions, attention weights, FC activations, contextual embeddings) and saves them as pickle files |
-| `data_reader.py` | Loads and preprocesses TriviaQA and FAVA-Annotation datasets |
+| `utils.py` | Contains functions for loading models and datasets |
 | `model.py` | Defines classifier architectures used for hallucination detection |
 | `eval_classifier.py` | Trains classifiers on collected artifacts and reports AUROC / accuracy |
 | `self_check_gpt.py` | Baseline: SelfCheckGPT with bert-score and n-gram consistency checks |

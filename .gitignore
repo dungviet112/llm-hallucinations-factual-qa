@@ -2,6 +2,7 @@
 *.csv
 
 # Data folders
+data/*/
 trex_uncompressed/
 mandarjoshi___trivia_qa/
 trivia_qa/
@@ -11,6 +12,7 @@ selfcheck_results/
 *.json
 
 # Model files
+classification/checkpoints/
 models/
 *.pt
 

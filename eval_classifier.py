@@ -8,7 +8,7 @@ import random
 from tqdm import tqdm
 
 from model import *
-from data_reader import load_hidden_states
+from utils import load_hidden_states
 
 gpu = "0"
 device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")

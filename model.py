@@ -1,11 +1,9 @@
 import torch
 torch.autograd.set_detect_anomaly(True)
 
-dropout_mlp = 0.5
-dropout_gru = 0.25
 
 class SingleMLP_Classifier(torch.nn.Module):
-    def __init__(self, input_shape, dropout = dropout_mlp):
+    def __init__(self, input_shape, dropout=0.25):
         super().__init__()
         self.dropout = dropout
         
@@ -22,7 +20,7 @@ class SingleMLP_Classifier(torch.nn.Module):
 
 
 class RNN_Classifier(torch.nn.Module):
-    def __init__(self, dropout=dropout_gru):
+    def __init__(self, dropout=0.25):
         super().__init__()
         hidden_dim = 128
         num_layers = 4
