@@ -47,6 +47,7 @@ Models/tokenizers are called from Huggingface. Softmax and contextual embeddings
 python result_collector.py
 ```
 
+Link to extracted hidden states of several LLMs on datasets: [here](https://drive.google.com/drive/folders/1785Xb0cg59-Tm5I0UQe6lrijmiu126fW?usp=sharing)
 <!-- ## Artifact data collection with pyvene
 
 Artifacts includes activations, attention, softmax output, attributions.

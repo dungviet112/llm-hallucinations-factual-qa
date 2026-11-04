@@ -41,8 +41,8 @@ mlp_dropout = 0.25
 
 results_file = "./results/460_samples_FAVA_Llama3-8B/Meta-Llama-3-8B-Instruct_fava_annotation_start-0_end-10000_8_26.pickle"
 save_model_dir = "./models/Llama3-8B"
-save_name = "single_mlp_context_emb_ProverQA_reduced_dim.pt"
-save_result_txt = "./results/5000_samples_ProverQA_Llama3.1-8B/score_result_reduced_dim.txt"
+save_name = "single_mlp_context_emb_FAVA_reduced_dim.pt"
+save_result_txt = "./results/460_samples_FAVA_Llama3-8B/score_result_reduced_dim.txt"
 os.makedirs(save_model_dir, exist_ok=True)
 
 print(f"Effective batch size: {effective_batch_size}")
