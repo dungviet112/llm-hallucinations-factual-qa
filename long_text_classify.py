@@ -26,7 +26,7 @@ MAX_SEQ_LEN = 2048
 REDUCED_LEN_1 = 512
 REDUCED_LEN_2 = 128
 
-# Use gradient accumulation to maintain an effective batch size of 128.
+# Use gradient accumulation to maintain an effective batch size of 128
 micro_batch_size = 8
 gradient_accumulation_steps = 16
 effective_batch_size = (
@@ -39,8 +39,10 @@ weight_decay = 1e-2
 reducer_dropout = 0.2
 mlp_dropout = 0.25
 
-save_model_dir = "./models/Llama-3.1-8B-Instruct"
-save_name = "single_mlp_context_emb_FAVA_reduced_dim.pt"
+results_file = "./results/460_samples_FAVA_Llama3-8B/Meta-Llama-3-8B-Instruct_fava_annotation_start-0_end-10000_8_26.pickle"
+save_model_dir = "./models/Llama3-8B"
+save_name = "single_mlp_context_emb_ProverQA_reduced_dim.pt"
+save_result_txt = "./results/5000_samples_ProverQA_Llama3.1-8B/score_result_reduced_dim.txt"
 os.makedirs(save_model_dir, exist_ok=True)
 
 print(f"Effective batch size: {effective_batch_size}")
@@ -228,7 +230,6 @@ class HallucinationClassifier(nn.Module):
 # =========================================================
 # Load and split data
 # =========================================================
-results_file = "./results/460_samples_FAVA_Llama3.1-8B/Llama-3.1-8B-Instruct_fava_annotation_start-0_end-10000_10_25.pickle"
 results, correct = load_hidden_states(results_file)
 
 generated_embeddings = results["generated_embeddings"]
@@ -460,12 +461,12 @@ best_index = valid_indices[
 
 tpr_at_5_fpr = tpr[best_index]
 
-print(
-    f"Contextual Embeddings\n"
-    f"ROC AUC: {context_emb_roc:.4f}\n"
-    f"Accuracy@0.5: {context_emb_acc:.4f}\n"
-    f"F1@0.5: {context_emb_f1:.4f}\n"
-    f"TPR@5%FPR: {tpr_at_5_fpr:.4f}\n"
+with open(save_result_txt, "a") as f:
+    f.write(
+        f"ROC AUC: {context_emb_roc:.4f}\n"
+        f"Accuracy: {context_emb_acc:.4f}\n"
+        f"F1: {context_emb_f1:.4f}\n"
+        f"TPR@5%FPR: {tpr_at_5_fpr:.4f}\n"
 )
 
 
