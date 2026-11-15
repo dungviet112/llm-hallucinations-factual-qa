@@ -1,6 +1,6 @@
 model:
   # HuggingFace full model name
-  name: "openai-community/gpt2"
+  name: "meta-llama/Meta-Llama-3-8B-Instruct"
   cache_dir: "./.cache/models"
   # The device to run LLM inference and classifier training on
   device: "cuda:0"
@@ -40,7 +40,7 @@ paths:
   # Where to save the final evaluation scores after testing
   score_file: "./results/score_result.txt"
 
-# Experiment with long text (FAVA-Annotation) and reduced context embeddings
+# Sequence reducer experiment on long-text samples
 long_text:
   max_sequence_length: 2048
   reduced_length_1: 512
@@ -51,6 +51,27 @@ long_text:
   gradient_accumulation_steps: 16
   save_name: "single_mlp_context_emb_FAVA_reduced_dim.pt"
   result_file: "./results/long_text_scores.txt"
+
+# Masked-attention pooling experiment on long-text samples
+long_text_attention:
+  results_file: "./results/460_samples_FAVA_Llama-3-8B/Meta-Llama-3-8B-Instruct_fava_annotation_start-0_end-10000_8_26.pickle"
+  checkpoint_path: "./models/Llama-3-8B/single_mlp_TriviaQA_attention_pooling.pt"
+  result_path: "./results/460_samples_FAVA_Llama-3-8B/score_result_masked_attention.txt"
+  max_sequence_length: 128
+  attention_dim: 128
+  reducer_dropout: 0.1
+  mlp_dropout: 0.25
+  micro_batch_size: 8
+  gradient_accumulation_steps: 16
+  steps: 1001
+  max_grad_norm: 1.0
+  evaluate_every: 50
+  early_stopping_patience: 6
+  min_delta: 0.0001
+  decision_threshold: 0.5
+  test_size: 0.2
+  validation_size: 0.2
+  seed: 123
 
 collection:
   # The layer number to extract contexual embeddings from

@@ -171,6 +171,65 @@ class HallucinationClassifier(torch.nn.Module):
         return self.classifier(self.sequence_reducer(hidden_states))
 
 
+class MaskedAttentionReducer(torch.nn.Module):
+    """Pool variable-length hidden-state sequences using a token mask."""
+
+    def __init__(self, hidden_dim, attention_dim=128, dropout=0.1):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        self.token_scorer = torch.nn.Sequential(
+            torch.nn.LayerNorm(hidden_dim),
+            torch.nn.Linear(hidden_dim, attention_dim),
+            torch.nn.GELU(),
+            torch.nn.Dropout(dropout),
+            torch.nn.Linear(attention_dim, 1),
+        )
+
+    def forward(self, hidden_states, token_mask, return_attention=False):
+        if hidden_states.ndim != 3:
+            raise ValueError("hidden_states must have shape [B, T, D].")
+        if hidden_states.shape[-1] != self.hidden_dim:
+            raise ValueError("hidden_dim does not match the reducer.")
+        if token_mask.shape != hidden_states.shape[:2]:
+            raise ValueError("token_mask must have shape [B, T].")
+        token_mask = token_mask.to(hidden_states.device, dtype=torch.bool)
+        if not token_mask.any(dim=1).all():
+            raise ValueError("Every sample must contain at least one valid token.")
+        scores = self.token_scorer(hidden_states).squeeze(-1).float()
+        scores = scores.masked_fill(~token_mask, float("-inf"))
+        attention_weights = torch.softmax(scores, dim=1)
+        pooled = torch.bmm(
+            attention_weights.to(hidden_states.dtype).unsqueeze(1),
+            hidden_states,
+        ).squeeze(1)
+        if return_attention:
+            return pooled, attention_weights
+        return pooled
+
+
+class MaskedAttentionClassifier(torch.nn.Module):
+    """Masked-attention sequence reducer followed by the shared MLP."""
+
+    def __init__(self, hidden_dim, attention_dim=128, reducer_dropout=0.1, mlp_dropout=0.25):
+        super().__init__()
+        self.sequence_reducer = MaskedAttentionReducer(
+            hidden_dim=hidden_dim,
+            attention_dim=attention_dim,
+            dropout=reducer_dropout,
+        )
+        self.output_norm = torch.nn.LayerNorm(hidden_dim)
+        self.classifier = SingleMLP_Classifier(
+            input_shape=hidden_dim,
+            dropout=mlp_dropout,
+        )
+
+    def encode(self, hidden_states, token_mask):
+        return self.output_norm(self.sequence_reducer(hidden_states, token_mask))
+
+    def forward(self, hidden_states, token_mask):
+        return self.classifier(self.encode(hidden_states, token_mask))
+
+
 # New names for new code; the old names remain available to legacy scripts.
 SingleMLPClassifier = SingleMLP_Classifier
 RNNClassifier = RNN_Classifier
