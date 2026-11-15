@@ -20,7 +20,7 @@ Clone the template configuration file `.env.example` to create your local enviro
 
 There are 2 datasets: **TriviaQA** (short-text response) and **FAVA-Annotation** (long-text response). The datasets will be saved in `./data/` folder after downloading.
 
-**TriviaQA** consists of a set of numerous trivia questions, answers and evidence tuples, but here we only use randomly 10000 questions from the no-context setting where the model is only provided with questions without any supporting information. Normally, the response for each TriviaQA question just has around **30-50 tokens**.
+**TriviaQA** consists of a set of numerous trivia questions, answers and evidence tuples, but here we only use randomly 10000 questions from the no-context setting where the model is only provided with questions without any supporting information. Normally, the response for each TriviaQA question just has around **50 tokens**.
 ```sh
 # TriviaQA (no-context) sample format
 {
@@ -44,7 +44,7 @@ The extension introduced in this project extracts the **contextual embeddings** 
 
 Models/tokenizers are called from Huggingface. Softmax and contextual embeddings are collected directly from the model, attributions are collected using the integrated gradients (IG) method available in Captum and activations and attentions (model internal states) are collected using the **register_forward_hook** functionality.
 ```sh
-python result_collector.py
+python -m scripts.run_collector --config config/experiment.yaml
 ```
 
 Link to extracted hidden states of several LLMs on datasets: [here](https://drive.google.com/drive/folders/1785Xb0cg59-Tm5I0UQe6lrijmiu126fW?usp=sharing)
@@ -65,7 +65,12 @@ python result_collector_pyvene.py
 
 Training classifiers on IG, softmax, attention scores, FC activations, contextual embeddings across the models/datasets. **model.py** consists of several different classifier architectures (RNN, Single layer MLP, multi-layer MLP + Residual block, and Multi-layer Transformer + Residual block) for the artifacts, then train and test them to get AUROC score with **eval_classifier.py** on the data collected by **result_collector.py**. The evaluated result (AUROC score) then be saved in **score_result.txt**.
 ```sh
-python eval_classifier.py
+python -m scripts.train_classifier --config config/experiment.yaml
+```
+
+The new experiment of classifier with a 2-layer sequence reducer integrated on long-text samples (e.g. FAVA-Annotation dataset). The input shape is `[batch, sequence_length, hidden_dimension]` then get reduced gradually to `[batch, hidden_dimension]` with the preserved semantic features.
+ ```sh
+python -m scripts.run_long_text --config config/experiment.yaml
 ```
 
 ## Results
@@ -115,7 +120,6 @@ Overall, both AUROC score and Accuracy on classifier with Contextual Embeddings 
 
 
 <!-- **Note**: The best performances are belonging to activations and attentions at last layer. -->
-
 <!-- ## Plots
 
 Data analysis (the plots in the paper) is done in **plots_tsne.ipynb** and **plots_entropy_and_pca.ipynb**. It corresponds to the 5.1 **Qualitative analysis** section of the paper, however most plots are collected in the appendix.
@@ -130,7 +134,14 @@ Example: the data source directoiry (in our case **results**) would contain only
 In this repo, selfcheckgpt is the baseline and compared to proposed method; a notebook is included. SelfcheckGPT does not perform well as the classifier, we hypothesize that this is because the models we use are small and the output for nonzero temperature is often subpar.
 Selfcheckgpt uses the **bert-score** and **n-gram** methods from the its paper in **self_check_gpt.py**.
 ```sh
-python self_check_gpt.py
+python -m scripts.self_check_gpt
+```
+
+## Hallucination Detector Application Example
+
+An example of how the hallucination detector will be working within the LLM generation process. It will return the prediction on LLM's response to a specific prompt.
+```sh
+python -m scripts.run_inference "Which city is the capital of Germany?" --checkpoint "path/to/the/checkpoint"
 ```
 
 ---
@@ -139,45 +150,47 @@ python self_check_gpt.py
 
 ```text
 .
-├── data/                              # Dataset directory (populated at runtime)
+├── config/
+|   └── experiment.yaml                # Model, dataset, paths, and hyperparameters (All-in-one configuration)
+├── data/                              # Dataset directory
 │   └── README.md                      # Instructions for downloading datasets
 ├── logs/                              # Runtime logs
 │   └── selfcheck_log_*.log            # SelfCheckGPT run logs
-├── classification/                    # Example of hallucinations detection application
-│   ├── factual_main.py                # LLM and hallucinations detection integration
-│   ├── requirements.txt               # Dependencies for integrated classifier LLM
-|   └── README.md                      # Instructions for running the classifier
-│
-├── result_collector.py                # Artifact collection pipeline (softmax, attention,
-│                                      # FC activations, contextual embeddings) via TriviaQA
-├── proverQA_collector.py              # Contextual embeddings collection pipeline on ProverQA
-├── utils.py                           # Dataset and LMs loading utilities
-├── model.py                           # Classifier architectures:
-│                                      #   RNN, Single-layer MLP, Multi-layer MLP + Residual,
-│                                      #   Multi-layer Transformer + Residual
-├── eval_classifier.py                 # Train & evaluate classifiers; writes AUROC to score_result.txt
-├── long_text_classify.py              # Testing Dimensional Reducer integrated with Classifier on long-text response
-├── self_check_gpt.py                  # SelfCheckGPT baseline (bert-score & n-gram methods)
-│
-├── classifier_model.ipynb             # Interactive notebook for classifier experiments
-├── proverQA.ipynb                     # Interactive notebook for classifier experiments on proverQA
-├── extract_attn_maps.ipynb            # Notebook for extracting & visualising attention maps
-├── hyperparam_tuning.ipynb            # Hyperparameter search notebook
-│
-├── score_result.txt                   # Saved AUROC / accuracy results
+├── notebooks/
+├── scripts/
+|   ├── run_collector.py               # Config-driven LLM's artifacts collector
+|   ├── run_inference.py               # Config-driven classifier inference
+|   ├── run_long_text.py               # Config-driven long-text classifier training
+|   ├── self_check_gpt.py              # SelfCheckGPT baseline (bert-score & n-gram methods)
+|   └── train_classifier.py            # Config-driven fixed-size classifier training
+├── src/
+|   ├── __init__.py
+|   ├── artifacts.py                   # Shared artifact-generation functions
+|   ├── classifier.py                  # Classifier architectures, including long-text models
+|   ├── collection.py
+|   ├── config.py                      # YAML loading and output-directory helpers
+|   ├── datasets.py                    # Hidden-state Dataset and padded DataLoaders
+|   ├── inference.py                   # Shared hallucination inference functions 
+|   ├── loaders.py                     # LLM, tokenizer, dataset, and checkpoint loading
+|   ├── proverqa.py                    # ProverQA generation and embedding collection   
+|   └── training.py                    # Training, pooling, and evaluation metrics
+|── .env.example                       # Template for HuggingFace token configuration
+├── README.md       
 ├── requirements.txt                   # Python dependencies
-├── setup.sh                           # Environment setup script
-└── .env.example                       # Template for HuggingFace token configuration
+└── setup.sh                           # Environment setup script
+
 ```
 
 ### File roles at a glance
 
 | File | Purpose |
 |---|---|
-| `result_collector.py` | Runs inference on TriviaQA, collects model artifacts (softmax, IG attributions, attention weights, FC activations, contextual embeddings) and saves them as pickle files |
-| `proverQA_collector.py` | Runs inference on ProverQA, collects contextual embeddings and saves them as pickle files |
-| `utils.py` | Contains functions for loading models and datasets |
-| `model.py` | Defines classifier architectures used for hallucination detection |
-| `eval_classifier.py` | Trains classifiers on collected artifacts and reports AUROC / accuracy |
-| `self_check_gpt.py` | Baseline: SelfCheckGPT with bert-score and n-gram consistency checks |
-| `score_result.txt` | Persisted evaluation scores from `eval_classifier.py` |
+| `config/experiment.yaml` | Configurion details including model, data paths, hyperparams, etc. |
+| `scripts/run_collector.py` | Runs inference, collects model artifacts (softmax, IG attributions, attention weights, FC activations, contextual embeddings) and saves them as pickle files |
+| `scripts/run_inference.py` | Runs trained classifer inference within the LLM generation process, predict the LLM's output is hallucinated or not |
+| `scripts/run_long_text.py` | Runs inference on long-text samples, collects its contextual embeddings and saves them as pickle files |
+| `scripts/train_classifier.py` | Runs classifier training and evaluation on collected features from pickle path defined in yaml configuration |
+| `scr/proverqa.py` | Generation and collection functions designed for ProverQA |
+| `src/loaders.py` | Contains common functions for loading models and datasets |
+| `src/classifier.py` | Defines classifier architectures used for hallucination detection |
+| `src/training.py` | Modules for training classifiers on collected artifacts and evaluation with AUROC / accuracy / F1 |

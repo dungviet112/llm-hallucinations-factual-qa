@@ -1,0 +1,73 @@
+model:
+  # HuggingFace full model name
+  name: "openai-community/gpt2"
+  cache_dir: "./.cache/models"
+  # The device to run LLM inference and classifier training on
+  device: "cuda:0"
+  dtype: "float16"
+  trust_remote_code: true
+
+dataset:
+  name: "fava_annotation"
+  # The place where the raw dataset is stored (json files from HuggingFace)
+  data_dir: "./data"
+  # The collected features dataset is expected to be in a pickle file format with the following structure:
+  results_file: "./results/460_samples_FAVA_Llama-3-8B/Meta-Llama-3-8B-Instruct_fava_annotation_start-0_end-10000_8_26.pickle"
+
+classifier:
+  # Define the architecture of the classifier
+  architecture: "single_mlp"
+  # Define the features to be used in the classifier only during inference
+  feature: "context_emb"
+  dropout: 0.25
+  hidden_size: 256
+  num_classes: 2
+
+training:
+  batch_size: 128
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  steps: 1001
+  test_size: 0.2
+  random_state: 123
+
+paths:
+  # Where to save the classifier checkpoints after training
+  model_dir: "./checkpoints"
+  # Where to save the collected features dataset after extraction
+  result_dir: "./results"
+  log_dir: "./logs"
+  # Where to save the final evaluation scores after testing
+  score_file: "./results/score_result.txt"
+
+# Experiment with long text (FAVA-Annotation) and reduced context embeddings
+long_text:
+  max_sequence_length: 2048
+  reduced_length_1: 512
+  reduced_length_2: 128
+  reducer_dropout: 0.2
+  mlp_dropout: 0.25
+  micro_batch_size: 8
+  gradient_accumulation_steps: 16
+  save_name: "single_mlp_context_emb_FAVA_reduced_dim.pt"
+  result_file: "./results/long_text_scores.txt"
+
+collection:
+  # The layer number to extract contexual embeddings from
+  layer_number: -1          # -1 for last layer
+  max_new_tokens: 100
+  integrated_gradients_steps: 64
+  integrated_gradients_batch_size: 4
+
+inference:
+  checkpoint_dir: "./models"
+  max_new_tokens: 50
+
+self_check:
+  dataset: "trivia_qa"
+  temperature: 0.1
+  trials: 10
+  max_new_tokens: 100
+  ngram: 1
+  spacy_model: "en_core_web_sm"
+  output_dir: "./logs/selfcheck_results"

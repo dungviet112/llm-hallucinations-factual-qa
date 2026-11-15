@@ -19,6 +19,7 @@ rouge-score
 gputil
 captum
 python-dotenv
+pyyaml
 accelerate
 selfcheckgpt
 spacy

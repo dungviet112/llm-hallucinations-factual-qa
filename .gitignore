@@ -13,6 +13,7 @@ selfcheck_results/
 
 # Model files
 classification/checkpoints/
+checkpoints/
 models/
 *.pt
 
