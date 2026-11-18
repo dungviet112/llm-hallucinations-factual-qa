@@ -1,18 +1,19 @@
 model:
   # HuggingFace full model name
-  name: "meta-llama/Meta-Llama-3-8B-Instruct"
+  name: "meta-llama/Llama-3.1-8B-Instruct"
   cache_dir: "./.cache/models"
   # The device to run LLM inference and classifier training on
   device: "cuda:0"
   dtype: "float16"
   trust_remote_code: true
+  reasoning: true
 
 dataset:
-  name: "fava_annotation"
+  name: "prover_qa"
   # The place where the raw dataset is stored (json files from HuggingFace)
   data_dir: "./data"
   # The collected features dataset is expected to be in a pickle file format with the following structure:
-  results_file: "./results/460_samples_FAVA_Llama-3-8B/Meta-Llama-3-8B-Instruct_fava_annotation_start-0_end-10000_8_26.pickle"
+  results_file: "./results/5000_samples_ProverQA_Llama3.1-8B/contextual_embs_standard_all_gen_tokens.pkl"
 
 classifier:
   # Define the architecture of the classifier
@@ -42,21 +43,21 @@ paths:
 
 # Sequence reducer experiment on long-text samples
 long_text:
-  max_sequence_length: 2048
-  reduced_length_1: 512
-  reduced_length_2: 128
+  max_sequence_length: 1024
+  reduced_length_1: 256
+  reduced_length_2: 64
   reducer_dropout: 0.2
   mlp_dropout: 0.25
   micro_batch_size: 8
   gradient_accumulation_steps: 16
-  save_name: "single_mlp_context_emb_FAVA_reduced_dim.pt"
+  save_name: "single_mlp_context_emb_ProverQA_reduced_dim.pt"
   result_file: "./results/long_text_scores.txt"
 
 # Masked-attention pooling experiment on long-text samples
 long_text_attention:
-  results_file: "./results/460_samples_FAVA_Llama-3-8B/Meta-Llama-3-8B-Instruct_fava_annotation_start-0_end-10000_8_26.pickle"
-  checkpoint_path: "./models/Llama-3-8B/single_mlp_TriviaQA_attention_pooling.pt"
-  result_path: "./results/460_samples_FAVA_Llama-3-8B/score_result_masked_attention.txt"
+  results_file: "./results/5000_samples_ProverQA_Qwen3-8B/contextual_embs_reasoning_all_gen_tokens.pkl"
+  checkpoint_path: "./checkpoints/Qwen3-8B/single_mlp_ProverQA_attention_pooling.pt"
+  result_path: "./results/5000_samples_ProverQA_Qwen3-8B/score_result_masked_attention.txt"
   max_sequence_length: 128
   attention_dim: 128
   reducer_dropout: 0.1

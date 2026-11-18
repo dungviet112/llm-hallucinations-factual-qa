@@ -94,28 +94,18 @@ def save_results(results, output_dir, model_name, dataset_name):
 def collect_prover_qa(config, model, tokenizer):
 	"""Run the ProverQA collector using explicit YAML configuration."""
 	dataset_config = config["dataset"]
-	prover_config = config.get("proverqa", {})
-	reasoning = prover_config.get("reasoning", False)
-	system_prompt, prompt_template = get_prompt_config(
+	# prover_config = config.get("proverqa", {})
+	reasoning = config["model"].get("reasoning", False)
+	print(f"Collecting ProverQA with reasoning={reasoning}")
+	system_prompt, prompt_template, max_new_tokens = get_prompt_config(
 		reasoning=reasoning,
-		system_prompt=prover_config.get("system_prompt"),
-		prompt_template=prover_config.get("prompt_template"),
+		# system_prompt=prover_config.get("system_prompt"),
+		# prompt_template=prover_config.get("prompt_template"),
 	)
-	json_path = Path(
-		prover_config.get(
-			"json_path",
-			dataset_config.get(
-				"json_path",
-				Path(dataset_config["data_dir"]) / "provergen-5000.json",
-			),
-		)
-	)
-	save_dir = Path(
-		prover_config.get(
-			"save_dir",
-			Path(config["paths"]["result_dir"]) / "proverqa",
-		)
-	)
+	json_path = Path(dataset_config["data_dir"]) / "provergen-5000.json"
+	model_key = config["model"]["name"].rstrip("/").split("/")[-1]
+	save_dir = Path(config["paths"]["result_dir"]) / f"{dataset_config['name']}_{model_key}"
+
 	return collect_proverqa(
 		model=model,
 		tokenizer=tokenizer,
@@ -123,8 +113,7 @@ def collect_prover_qa(config, model, tokenizer):
 		save_dir=save_dir,
 		system_prompt=system_prompt,
 		prompt_template=prompt_template,
-		reasoning=reasoning,
-		max_new_tokens=prover_config.get("max_new_tokens", 1024 if reasoning else 128),
+		max_new_tokens=max_new_tokens,
 	)
 
 
@@ -137,8 +126,8 @@ def run(config):
 	layer_number = collection_config.get("layer_number", -1)
 
 	if torch.cuda.is_available():
-		device = model_config.get("device", "auto")
-		device_map = "auto" if str(device).startswith("cuda") else device
+		device_map = model_config.get("device", "auto")
+		# device_map = "auto" if str(device).startswith("cuda") else device
 	else:
 		device = "cpu"
 		device_map = "cpu"

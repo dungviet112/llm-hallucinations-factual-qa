@@ -39,7 +39,7 @@ def main():
     model_name = Path(config["model"]["name"]).name
     save_model_dir = Path(paths["model_dir"]) / model_name
     Path(save_model_dir).mkdir(parents=True, exist_ok=True)
-    save_path = save_model_dir / "mlp_context_emb.pt"
+    save_path = save_model_dir / f"{architecture_name}_{config['dataset']['name']}.pt"
     device = config["model"].get("device", "cpu")
     if not torch.cuda.is_available() and str(device).startswith("cuda"):
         device = "cpu"

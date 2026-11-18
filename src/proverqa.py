@@ -9,6 +9,7 @@ from pathlib import Path
 import numpy as np
 import torch
 from tqdm import tqdm
+from typer import prompt
 
 
 DEFAULT_SYSTEM_PROMPT = "Given a problem statement as contexts, the task is to answer a logical reasoning question. Your answer should be in JSON format with key: answer."
@@ -63,12 +64,15 @@ def get_prompt_config(reasoning=False, system_prompt=None, prompt_template=None)
     if reasoning:
         default_system = DEFAULT_REASONING_SYSTEM_PROMPT
         default_template = DEFAULT_REASONING_PROMPT_TEMPLATE
+        max_new_tokens = 1024
     else:
         default_system = DEFAULT_SYSTEM_PROMPT
         default_template = DEFAULT_PROMPT_TEMPLATE
+        max_new_tokens = 128
     return (
         system_prompt or default_system,
         prompt_template or default_template,
+        max_new_tokens,
     )
 
 
@@ -102,14 +106,16 @@ def collect_proverqa(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": full_prompt},
         ]
-        tokenized = tokenizer.apply_chat_template(
+        inputs = tokenizer.apply_chat_template(
             messages,
-            tokenize=True,
+            tokenize=False,
             add_generation_prompt=True,
-            return_tensors="pt",
-            return_dict=True,
-            enable_thinking=reasoning,
-        ).to(model.device)
+            # return_dict=True,
+            enable_thinking=False,
+        )
+        if inputs.endswith("<think>\n"): 
+            inputs += "</think>\n\n"
+        tokenized = tokenizer(inputs, return_tensors="pt").to(model.device)
         outputs = model.generate(
             **tokenized,
             max_new_tokens=max_new_tokens,
@@ -130,14 +136,15 @@ def collect_proverqa(
         })
         if extracted_answer is None:
             continue
-        full_messages = messages + [{"role": "assistant", "content": trace}]
-        full_inputs = tokenizer.apply_chat_template(
-            full_messages,
-            tokenize=True,
-            add_generation_prompt=True,
-            return_tensors="pt",
-            enable_thinking=False,
-        ).to(model.device)
+        # full_messages = messages + [{"role": "assistant", "content": trace}]
+        # full_inputs = tokenizer.apply_chat_template(
+        #     full_messages,
+        #     tokenize=True,
+        #     add_generation_prompt=True,
+        #     return_tensors="pt",
+        #     enable_thinking=False,
+        # ).to(model.device)
+        full_inputs = outputs[:, :]
         with torch.no_grad():
             hidden_states = model(
                 input_ids=full_inputs,
@@ -145,12 +152,18 @@ def collect_proverqa(
                 output_hidden_states=True,
                 return_dict=True,
             ).hidden_states[-1]
-        embeddings = hidden_states[0, prompt_length - 1:-1].float().cpu().numpy()
+        embeddings = hidden_states[0, prompt_length - 1 : full_inputs.shape[1] - 1].float().cpu().numpy()
         results["generated_embeddings"].append(np.stack(embeddings))
         results["index"].append(index)
         results["correct"].append(correct)
-    with (save_dir / "logical_result_standard.json").open("w", encoding="utf-8") as file:
-        json.dump(response_results, file, indent=2)
-    with (save_dir / "contextual_embs_standard_all_gen_tokens.pkl").open("wb") as file:
-        pickle.dump(results, file)
+    if reasoning:
+        with (save_dir / "logical_result_reasoning.json").open("w", encoding="utf-8") as file:
+            json.dump(response_results, file, indent=2)
+        with (save_dir / "contextual_embs_reasoning_all_gen_tokens.pkl").open("wb") as file:
+            pickle.dump(results, file)
+    else:
+        with (save_dir / "logical_result_standard.json").open("w", encoding="utf-8") as file:
+            json.dump(response_results, file, indent=2)
+        with (save_dir / "contextual_embs_standard_all_gen_tokens.pkl").open("wb") as file:
+            pickle.dump(results, file)
     return results, response_results
